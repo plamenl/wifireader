@@ -4,8 +4,6 @@
 #include <windows.h>
 #include <process.h>
 #include <stdio.h>
-
-#include <wlanapi.h>
 #include <objbase.h>
 #include <wtypes.h>
 
@@ -13,9 +11,10 @@
 #include "ntddndis.h"
 
 // Need to link with Wlanapi.lib and Ole32.lib
-#pragma comment(lib, "wlanapi.lib")
 #pragma comment(lib, "ole32.lib")
 
+#define MAX_BSSIDS 100
+#define SIZEOF_DEVICE_NAME 256
 //extern int stopScanners;		///< Global flag to know when to stop capturing scans.
 static HANDLE wifiReaderHandle;		///< Global thread handle
 static int WiFiReaderScanDone;
@@ -33,7 +32,7 @@ public:
 	
 	/// @brief The actual scan capture loop where everything is done.
 	void captureLoop( void );
-	static void captureCallback(WLAN_NOTIFICATION_DATA *wlanNotifData,VOID *p);
+	//static void captureCallback(WLAN_NOTIFICATION_DATA *wlanNotifData,VOID *p);
 	
 	/// @brief Shutdown wifi interface, any necesary cleanup.
 	int disconnect();	
@@ -44,19 +43,18 @@ public:
 	/// @brief Returns an integer which increments at a fixed rate (e.g. once per second/cycle). This will be monitored with a watchdog timer.
 	int heartbeat();
 
+	void BssidScan(void);
+	bool openDevice(void);
+
 	int fingerprintsCapturedVal;
 	time_t currTime;
 
 	HANDLE hClient;
 	DWORD dwCurVersion;
 
-	PWLAN_INTERFACE_INFO_LIST pIfList;
-    PWLAN_INTERFACE_INFO pIfInfo;
-
-    PWLAN_BSS_LIST pBssList;
-    PWLAN_BSS_ENTRY pBssEntry;
-	PWLAN_AVAILABLE_NETWORK_LIST pNetworkList;
+	HANDLE hDevice;
 	NDIS_802_11_BSSID_LIST* m_pBSSIDList;
+
 
 	FILE *fp, *fp2;
 };

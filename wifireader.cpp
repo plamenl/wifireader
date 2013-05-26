@@ -3,7 +3,6 @@
 #include <process.h>
 #include <time.h>
 #include "wifireader.h"
-#include <wlanapi.h>
 #include <objbase.h>
 #include <wtypes.h>
 
@@ -11,7 +10,6 @@
 #include <stdlib.h>
 
 // Need to link with Wlanapi.lib and Ole32.lib
-#pragma comment(lib, "wlanapi.lib")
 #pragma comment(lib, "ole32.lib")
 
 extern int stopScanners;
@@ -25,72 +23,109 @@ void WiFiReader::wifiReaderThread (void * p) {
 	 return;
 }
 
-void WiFiReader::captureCallback(WLAN_NOTIFICATION_DATA *wlanNotifData,VOID *p)
+/*void WiFiReader::captureCallback(WLAN_NOTIFICATION_DATA *wlanNotifData,VOID *p)
 {
 	WiFiReaderScanDone = 1;
+}*/
+
+void WiFiReader::BssidScan(void) {
+	ULONG oidcode;
+	ULONG bytesreturned;
+
+	m_pBSSIDList = ( NDIS_802_11_BSSID_LIST *) VirtualAlloc(  NULL,
+                                                        sizeof( NDIS_802_11_BSSID_LIST) * MAX_BSSIDS,
+                                                        MEM_RESERVE | MEM_COMMIT,
+                                                        PAGE_READWRITE) ;
+
+	if( m_pBSSIDList == NULL) {
+		fprintf(stderr,"Unable to allocate memory for bssids\n");
+		}
+	else {
+        memset( m_pBSSIDList, 0, sizeof( NDIS_802_11_BSSID_LIST) * MAX_BSSIDS) ;
+        oidcode = OID_802_11_BSSID_LIST_SCAN ;
+		if( hDevice == INVALID_HANDLE_VALUE)
+        {
+			   fprintf(stderr,"invalid handle!!!\n");
+        }
+        DeviceIoControl(        hDevice,
+                                IOCTL_NDIS_QUERY_GLOBAL_STATS,
+                                &oidcode,
+                                sizeof( oidcode),
+                                ( ULONG *) NULL,
+                                0,
+                                &bytesreturned,
+                                NULL) ;
+
+        Sleep(3000);
+
+        memset( m_pBSSIDList, 0, sizeof( NDIS_802_11_BSSID_LIST) * MAX_BSSIDS) ;
+        oidcode = OID_802_11_BSSID_LIST ;
+
+        if( DeviceIoControl(    hDevice,
+                                IOCTL_NDIS_QUERY_GLOBAL_STATS,
+                                &oidcode,
+                                sizeof( oidcode),
+                                ( ULONG *) m_pBSSIDList,
+                                sizeof( NDIS_802_11_BSSID_LIST) * MAX_BSSIDS,
+                                &bytesreturned,
+                                NULL) == 0)
+        {
+               // List failed
+			  fprintf(stderr,"scan fail: %d\n", GetLastError());
+        }
+        else
+        {
+
+			 
+			  fprintf(stderr,"scan success\n");
+        }
+	}
 }
-//	DWORD dwResult;
-//	unsigned int j,k;
-//    int iRSSI = 0;
-//
-//	if(wlanNotifData->NotificationCode == wlan_notification_acm_scan_fail) {
-//		fprintf(stderr,"Scan Failed\n");
-//		return;
-//	}
-//
-//	dwResult = WlanGetNetworkBssList(hClient, 
-//									&wlanNotifData->InterfaceGuid, 
-//									NULL, 
-//									dot11_BSS_type_any, // ignored
-//									0, // ignored
-//									NULL, 
-//									&pBssList);
-//	if (dwResult != ERROR_SUCCESS) {
-//		fprintf(stderr,"WlanGetNewtorkBssList failed with error: %u\n", dwResult);
-//	} else {
-//		fprintf(stderr,"\t%i items",pBssList->dwNumberOfItems);
-//		for (j = 0; j < pBssList->dwNumberOfItems; j++) {
-//			pBssEntry = (WLAN_BSS_ENTRY *) & pBssList->wlanBssEntries[j];
-//
-//			//time
-//			fprintf(fp,"%lu\t",(unsigned long)currTime);
-//
-//			//timestamps
-//			fprintf(fp,"%llu\t%llu\t",pBssEntry->ullTimestamp,pBssEntry->ullHostTimestamp);
-//
-//			//beacon interval
-//			fprintf(fp,"%u\t",pBssEntry->usBeaconPeriod);
-//
-//			// MAC address
-//			for (k = 0; k < sizeof (pBssEntry->dot11Bssid); k++) {
-//				if (k == 0)
-//					fprintf(fp, "%.2X", pBssEntry->dot11Bssid[k]);
-//				else
-//					fprintf(fp, "-%.2X", pBssEntry->dot11Bssid[k]);
-//			}
-//
-//			// RSSI
-//			iRSSI = -100 + (pBssEntry->uLinkQuality/2);    	
-//			fprintf(fp,"\t%u\t%i\t", pBssEntry->uLinkQuality, iRSSI);
-//
-//			//SSID
-//			if (pBssEntry->dot11Ssid.uSSIDLength == 0)
-//				fprintf(fp,"\t");
-//			else {   
-//				for (k = 0; k < pBssEntry->dot11Ssid.uSSIDLength; k++) {
-//					fprintf(fp,"%c", (int) pBssEntry->dot11Ssid.ucSSID[k]);
-//				}
-//				fprintf(fp,"\t");
-//			}
-//
-//			fprintf(fp,"\n");
-//
-//			fingerprintsCapturedVal++;
-//		}
-//	}
-//	WlanFreeMemory(pBssList);
-//
-//}
+
+bool WiFiReader::openDevice( void)
+{
+        char device_file[ SIZEOF_DEVICE_NAME] ;
+		FILE *fp;
+		sprintf( device_file, "\\\\.\\%s", "{8BA93BA9-B159-414F-9442-03A33C418CB6}") ;
+        hDevice = CreateFileA(   device_file,
+                                0,
+                                FILE_SHARE_READ,
+                                NULL,
+                                OPEN_EXISTING,
+                                0,
+                                NULL) ;
+
+		if( hDevice == INVALID_HANDLE_VALUE)
+        {
+			   fprintf(stderr,"invalid handle!!!\n");
+               return false;
+        }
+        else
+        {
+			ULONG oidcode;
+			ULONG bytesreturned;
+            oidcode = OID_802_11_RSSI ;
+			NDIS_802_11_RSSI myrsi=0;
+		if( hDevice == INVALID_HANDLE_VALUE)
+        {
+			   fprintf(stderr,"invalid handle!!!\n");
+        }
+			DeviceIoControl(        hDevice,
+                                IOCTL_NDIS_QUERY_GLOBAL_STATS,
+                                &oidcode,
+                                sizeof( oidcode),
+                                ( ULONG *) &myrsi,
+                                sizeof( myrsi),
+                                &bytesreturned,
+                                NULL) ;   
+			fprintf(stderr,"signal: %d\n", GetLastError());
+			
+			return true;
+
+        }
+
+}
+
 
 void WiFiReader::captureLoop( void ) {
 
@@ -105,113 +140,19 @@ void WiFiReader::captureLoop( void ) {
 
     /* variables used for WlanEnumInterfaces  */
 
-    pIfList = NULL;
-    pIfInfo = NULL;
-
-    pBssList = NULL;
-    pBssEntry = NULL;
-
-	pNetworkList = NULL;
+   
 
     int iRSSI = 0;
 
 	DWORD dwResult = 0;
-
+	//m_airctl.list_devices();
+	//NDIS_802_11_BSSID_LIST * pBSSIDList = m_airctl.scan();
+	/*m_pBSSIDList = ( NDIS_802_11_BSSID_LIST *) VirtualAlloc(  NULL,
+                                                        sizeof( NDIS_802_11_BSSID_LIST) * 100,
+                                                        MEM_RESERVE | MEM_COMMIT,
+                                                        PAGE_READWRITE) ;*/
 	while (!stopScanners) {
-		dwResult = WlanEnumInterfaces(hClient, NULL, &pIfList);
-		if (dwResult != ERROR_SUCCESS) {
-			fprintf(stderr,"WlanEnumInterfaces failed with error: %u\n", dwResult);
-			return;
-		}
-
-		for (i = 0; i < (int) pIfList->dwNumberOfItems; i++) {
-			pIfInfo = (WLAN_INTERFACE_INFO *) &pIfList->InterfaceInfo[i];
-
-			time(&currTime);
-			//NdisGetCurrentSystemTime(&currTime);
-
-			if (WiFiReaderScanDone) {
-
-				dwResult = WlanGetAvailableNetworkList(hClient,
-														&pIfInfo->InterfaceGuid,
-														0, NULL, &pNetworkList);
-				if (dwResult == ERROR_SUCCESS) {
-					for (j = 0; j < pNetworkList->dwNumberOfItems; j++) { 
-						fprintf(fp2, "stuff: %s\n", pNetworkList->Network->dot11Ssid);
-						pNetworkList->dwIndex++;
-						}
-				}
-				dwResult = WlanGetNetworkBssList(hClient, 
-												&pIfInfo->InterfaceGuid, 
-												NULL, 
-												dot11_BSS_type_any, // ignored
-												0, // ignored
-												NULL, 
-												&pBssList);
-				if (dwResult != ERROR_SUCCESS) {
-					fprintf(stderr,"WlanGetNewtorkBssList failed with error: %u\n", dwResult);
-				} else {
-					fprintf(stderr,"\t%i items",pBssList->dwNumberOfItems);
-					for (j = 0; j < pBssList->dwNumberOfItems; j++) {
-						pBssEntry = (WLAN_BSS_ENTRY *) & pBssList->wlanBssEntries[j];
-
-						//time
-						fprintf(fp,"%lu\t",(unsigned long)currTime);
-
-						//timestamps
-						fprintf(fp,"%llu\t%llu\t",pBssEntry->ullTimestamp,pBssEntry->ullHostTimestamp);
-
-						//beacon interval
-						fprintf(fp,"%u\t",pBssEntry->usBeaconPeriod);
-
-						// MAC address
-						for (k = 0; k < sizeof (pBssEntry->dot11Bssid); k++) {
-							if (k == 0)
-								fprintf(fp, "%.2X", pBssEntry->dot11Bssid[k]);
-							else
-								fprintf(fp, "-%.2X", pBssEntry->dot11Bssid[k]);
-						}
-
-						// RSSI
-						iRSSI = -100 + (pBssEntry->uLinkQuality/2);    	
-						fprintf(fp,"\t%u\t%i\t", pBssEntry->uLinkQuality, iRSSI);
-
-						//SSID
-						if (pBssEntry->dot11Ssid.uSSIDLength == 0)
-							fprintf(fp,"\t");
-						else {   
-							for (k = 0; k < pBssEntry->dot11Ssid.uSSIDLength; k++) {
-								fprintf(fp,"%c", (int) pBssEntry->dot11Ssid.ucSSID[k]);
-							}
-							fprintf(fp,"\t");
-						}
-
-						fprintf(fp,"\n");
-
-						fingerprintsCapturedVal++;
-					}
-				}
-				WlanFreeMemory(pBssList);
-
-				dwResult = WlanScan(hClient,
-									&pIfInfo->InterfaceGuid,
-									NULL,
-									NULL,
-									NULL);
-				if (dwResult != ERROR_SUCCESS) {
-					fprintf(stderr,"WlanScan failed with error: %u\n", dwResult);
-				}
-				WlanRegisterNotification(hClient, 
-										WLAN_NOTIFICATION_SOURCE_ACM, 
-										FALSE,
-										(WLAN_NOTIFICATION_CALLBACK)captureCallback, 
-										NULL, 
-										NULL, 
-										NULL);
-				WiFiReaderScanDone = 0;
-			}
-		}
-		Sleep(50);
+		BssidScan();
 	}
 }
 
@@ -231,24 +172,28 @@ int WiFiReader::initialize() {
 
 	fopen_s(&fp,"wifiout.dat","w");	// can make this an input
 	fopen_s(&fp2,"debug.dat","w");
-    dwResult = WlanOpenHandle(dwMaxClient, NULL, &dwCurVersion, &hClient);
+	if (WiFiReader::openDevice())
+		fprintf(stderr,"success opening\n");
+	else
+		return -1;
+    /*dwResult = WlanOpenHandle(dwMaxClient, NULL, &dwCurVersion, &hClient);
     if (dwResult != ERROR_SUCCESS) {
         return -1;
     } else {
 		return 0;
-	}
+	}*/
 }
 
 int WiFiReader::disconnect() {
-	DWORD dwResult = 0;
-		dwResult = WlanCloseHandle(hClient, NULL);
-    if (dwResult != ERROR_SUCCESS) {
-        return -1;
-    } else {
-		return 0;
+
+	if(m_pBSSIDList !=NULL){
+		::VirtualFree(m_pBSSIDList,sizeof( NDIS_802_11_BSSID_LIST) * MAX_BSSIDS,0);
+		m_pBSSIDList =NULL;
 	}
+	
 	fclose(fp);
 	fclose(fp2);
+	return 1;
 }
 
 int WiFiReader::fingerprintsCaptured() {
