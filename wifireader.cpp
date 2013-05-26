@@ -86,7 +86,7 @@ bool WiFiReader::openDevice( void)
 {
         char device_file[ SIZEOF_DEVICE_NAME] ;
 		FILE *fp;
-		sprintf( device_file, "\\\\.\\%s", "{8BA93BA9-B159-414F-9442-03A33C418CB6}") ;
+		sprintf( device_file, "\\\\.\\%s", "{892BA347-821A-4A14-9410-9712BB551A52}") ;
         hDevice = CreateFileA(   device_file,
                                 0,
                                 FILE_SHARE_READ,

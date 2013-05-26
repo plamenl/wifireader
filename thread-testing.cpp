@@ -17,14 +17,15 @@ int main()
 	int dummyVar = 0;
 	char device_file[ 256] ;
 		FILE *fp;
-		sprintf( device_file, "\\\\.\\%s", "{8BA93BA9-B159-414F-9442-03A33C418CB6}") ;
+		sprintf( device_file, "\\\\.\\%s", "{892BA347-821A-4A14-9410-9712BB551A52}") ;
 											
-        HANDLE hDevice = CreateFile(device_file, GENERIC_READ | GENERIC_WRITE,
-            0,
-            0,
-            OPEN_EXISTING,
-            0,
-            NULL);
+        HANDLE hDevice = CreateFileA(device_file,
+								GENERIC_READ,
+                                FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                NULL,
+                                OPEN_EXISTING,
+                                0,
+                                NULL);
 			
 			
 			/*CreateFileA(   device_file,
@@ -42,14 +43,14 @@ int main()
         }
         else
         {
+
+
+
 			ULONG oidcode;
 			ULONG bytesreturned;
             oidcode = OID_802_11_RSSI ;
 			NDIS_802_11_RSSI myrsi=0;
-		if( hDevice == INVALID_HANDLE_VALUE)
-        {
-			   fprintf(stderr,"invalid handle!!!\n");
-        }
+		
 			DeviceIoControl(        hDevice,
                                 IOCTL_NDIS_QUERY_GLOBAL_STATS,
                                 &oidcode,
@@ -58,7 +59,7 @@ int main()
                                 sizeof( myrsi),
                                 &bytesreturned,
                                 NULL) ;   
-			fprintf(stderr,"signal: %d\n", GetLastError());
+			fprintf(stderr,"signal: %d\n", myrsi);
 			Sleep(10000);
 		}
 	/*WiFiReader w;
