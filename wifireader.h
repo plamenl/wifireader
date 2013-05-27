@@ -45,7 +45,10 @@ public:
 
 	void BssidScan(void);
 	bool openDevice(void);
-
+	bool WiFiReader::get_device_info(   int Index,
+                        char *key_name,
+                        char *device_info,
+                        char *device_description);
 	int fingerprintsCapturedVal;
 	time_t currTime;
 

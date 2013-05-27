@@ -45,7 +45,7 @@ void WiFiReader::BssidScan(void) {
         oidcode = OID_802_11_BSSID_LIST_SCAN ;
 		if( hDevice == INVALID_HANDLE_VALUE)
         {
-			   fprintf(stderr,"invalid handle!!!\n");
+			   fprintf(stderr,"invalid handle!\n");
         }
         DeviceIoControl(        hDevice,
                                 IOCTL_NDIS_QUERY_GLOBAL_STATS,
@@ -56,7 +56,7 @@ void WiFiReader::BssidScan(void) {
                                 &bytesreturned,
                                 NULL) ;
 
-        Sleep(3000);
+        Sleep(2000);
 
         memset( m_pBSSIDList, 0, sizeof( NDIS_802_11_BSSID_LIST) * MAX_BSSIDS) ;
         oidcode = OID_802_11_BSSID_LIST ;
@@ -69,24 +69,109 @@ void WiFiReader::BssidScan(void) {
                                 sizeof( NDIS_802_11_BSSID_LIST) * MAX_BSSIDS,
                                 &bytesreturned,
                                 NULL) == 0)
-        {
-               // List failed
-			  fprintf(stderr,"scan fail: %d\n", GetLastError());
-        }
+			  fprintf(stderr,"\nscan fail: %d\n", GetLastError());
         else
-        {
-
-			 
-			  fprintf(stderr,"scan success\n");
-        }
+			fprintf(stderr,"\nbssids: %d\n", m_pBSSIDList->NumberOfItems);
+       
 	}
 }
 
+
+bool WiFiReader::get_device_info(   int Index,
+                        char *key_name,
+                        char *device_info,
+                        char *device_description)
+{
+        HKEY hkey ;
+        DWORD size ;
+        DWORD type ;
+        BOOL retval ;
+
+        retval = FALSE ;
+
+      memset( device_info, 0, SIZEOF_DEVICE_NAME) ;
+
+		if( RegOpenKeyExA(       HKEY_LOCAL_MACHINE,
+                                key_name,
+                                0,
+                                KEY_READ,
+                                &hkey) == ERROR_SUCCESS)
+        {
+                type = REG_SZ ;
+                size = SIZEOF_DEVICE_NAME ;
+
+                if( RegQueryValueExA(    hkey,
+                                        "ServiceName",
+                                        NULL,
+                                        &type,
+                                        ( BYTE *) device_info,
+                                        &size) == ERROR_SUCCESS)
+                {
+                        type = REG_SZ ;
+                        size = SIZEOF_DEVICE_NAME ;
+
+                        if( RegQueryValueExA(    hkey,
+                                                "Description",
+                                                NULL,
+                                                &type,
+                                                ( BYTE *) device_description,
+                                                &size) == ERROR_SUCCESS)
+                        {
+                                retval = TRUE ;
+                        }
+                }
+
+                RegCloseKey( hkey) ;
+        }
+
+        return retval ;
+}
 bool WiFiReader::openDevice( void)
 {
-        char device_file[ SIZEOF_DEVICE_NAME] ;
-		FILE *fp;
-		sprintf( device_file, "\\\\.\\%s", "{892BA347-821A-4A14-9410-9712BB551A52}") ;
+        char device_file[ SIZEOF_DEVICE_NAME];
+		char key_name[ SIZEOF_DEVICE_NAME];
+        char full_name[ SIZEOF_DEVICE_NAME];
+        char device_info[ SIZEOF_DEVICE_NAME];
+        char device_description[ SIZEOF_DEVICE_NAME];
+		FILETIME file_time;
+		HKEY hkey;
+        int index;
+        DWORD size;
+
+        index = 0 ;
+		if( RegOpenKeyExA(       HKEY_LOCAL_MACHINE,
+                                "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards",
+                                0,
+                                KEY_READ,
+                                &hkey) == ERROR_SUCCESS)
+			{
+            size = SIZEOF_DEVICE_NAME ;
+
+            while(  RegEnumKeyExA(   hkey,
+                                        index,
+                                        key_name,
+                                        &size,
+                                        NULL,
+                                        NULL,
+                                        NULL,
+                                        &file_time) == ERROR_SUCCESS)
+                {
+                        sprintf(        full_name,
+                                        "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards\\%s",
+                                        key_name) ;
+
+                        get_device_info(        index,
+                                                full_name,
+                                                device_info,
+                                                device_description) ;
+					
+                        index++ ;
+                        size = SIZEOF_DEVICE_NAME ;
+                }
+
+                RegCloseKey( hkey) ;
+		}
+		sprintf( device_file, "\\\\.\\%s", device_info) ;
         hDevice = CreateFileA(   device_file,
                                 0,
                                 FILE_SHARE_READ,
@@ -96,33 +181,12 @@ bool WiFiReader::openDevice( void)
                                 NULL) ;
 
 		if( hDevice == INVALID_HANDLE_VALUE)
-        {
-			   fprintf(stderr,"invalid handle!!!\n");
-               return false;
-        }
+			{
+			//fprintf(stderr,"invalid handle!!!\n");
+            return false;
+			}
         else
-        {
-			ULONG oidcode;
-			ULONG bytesreturned;
-            oidcode = OID_802_11_RSSI ;
-			NDIS_802_11_RSSI myrsi=0;
-		if( hDevice == INVALID_HANDLE_VALUE)
-        {
-			   fprintf(stderr,"invalid handle!!!\n");
-        }
-			DeviceIoControl(        hDevice,
-                                IOCTL_NDIS_QUERY_GLOBAL_STATS,
-                                &oidcode,
-                                sizeof( oidcode),
-                                ( ULONG *) &myrsi,
-                                sizeof( myrsi),
-                                &bytesreturned,
-                                NULL) ;   
-			fprintf(stderr,"signal: %d\n", GetLastError());
-			
 			return true;
-
-        }
 
 }
 
@@ -132,27 +196,35 @@ void WiFiReader::captureLoop( void ) {
     // Declare and initialize variables.
 
 
-    int iRet = 0;
-    
-    WCHAR GuidString[39] = {0};
+    //int iRet = 0;
+    //WCHAR GuidString[39] = {0};
+    unsigned int i;
 
-    unsigned int i, j, k;
-
-    /* variables used for WlanEnumInterfaces  */
-
-   
-
-    int iRSSI = 0;
-
-	DWORD dwResult = 0;
-	//m_airctl.list_devices();
-	//NDIS_802_11_BSSID_LIST * pBSSIDList = m_airctl.scan();
-	/*m_pBSSIDList = ( NDIS_802_11_BSSID_LIST *) VirtualAlloc(  NULL,
-                                                        sizeof( NDIS_802_11_BSSID_LIST) * 100,
-                                                        MEM_RESERVE | MEM_COMMIT,
-                                                        PAGE_READWRITE) ;*/
 	while (!stopScanners) {
 		BssidScan();
+		time(&currTime);
+		for (i = 0; i < m_pBSSIDList->NumberOfItems; i++) {
+			int temp=i;
+			char macaddress[64];
+			
+			PNDIS_WLAN_BSSID cpSsid=m_pBSSIDList->Bssid;
+
+			while(temp!=0 ){
+				cpSsid=(PNDIS_WLAN_BSSID)((char*)cpSsid+ cpSsid->Length);
+				temp--;
+				}
+			fprintf(fp,"%lu\t",(unsigned long)currTime);
+			fprintf(fp,"%i\t",cpSsid->Configuration.BeaconPeriod);
+			sprintf(macaddress,"%02X-%02X-%02X-%02X-%02X-%02X",(int*)cpSsid->MacAddress[0],(int*)cpSsid->MacAddress[1],
+					(int*)m_pBSSIDList->Bssid[i].MacAddress[2],(int*)cpSsid->MacAddress[3],(int*)cpSsid->MacAddress[4],(int*)cpSsid->MacAddress[5]);
+			
+			int chan= cpSsid->Configuration.DSConfig;
+						chan -=2407000;
+						chan/=5000;
+			
+			fprintf(fp,"%s\t%i\t%i\t%s\n",macaddress, cpSsid->Rssi, chan, cpSsid->Ssid.Ssid);
+			fingerprintsCapturedVal++;
+			}
 	}
 }
 
@@ -171,17 +243,10 @@ int WiFiReader::initialize() {
 	WiFiReaderScanDone = 1;
 
 	fopen_s(&fp,"wifiout.dat","w");	// can make this an input
-	fopen_s(&fp2,"debug.dat","w");
 	if (WiFiReader::openDevice())
-		fprintf(stderr,"success opening\n");
+		return 0;
 	else
 		return -1;
-    /*dwResult = WlanOpenHandle(dwMaxClient, NULL, &dwCurVersion, &hClient);
-    if (dwResult != ERROR_SUCCESS) {
-        return -1;
-    } else {
-		return 0;
-	}*/
 }
 
 int WiFiReader::disconnect() {
@@ -192,7 +257,6 @@ int WiFiReader::disconnect() {
 	}
 	
 	fclose(fp);
-	fclose(fp2);
 	return 1;
 }
 
