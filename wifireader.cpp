@@ -164,7 +164,10 @@ bool WiFiReader::openDevice( void)
                                                 full_name,
                                                 device_info,
                                                 device_description) ;
-					
+						if (!strcmp(device_description, "Gigabyte GN-WI06N (mini) PCI Express WLAN Card"))
+							break;
+						//if (!strcmp(device_description, "ORiNOCO 802.11bg ComboCard Gold"))
+						//	break;
                         index++ ;
                         size = SIZEOF_DEVICE_NAME ;
                 }
