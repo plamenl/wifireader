@@ -31,17 +31,18 @@ void WiFiReader::wifiReaderThread (void * p) {
 void WiFiReader::BssidScan(void) {
 	ULONG oidcode;
 	ULONG bytesreturned;
-
-	m_pBSSIDList = ( NDIS_802_11_BSSID_LIST *) VirtualAlloc(  NULL,
-                                                        sizeof( NDIS_802_11_BSSID_LIST) * MAX_BSSIDS,
+	char QueryBuffer[1024*30] = {0};
+	m_pBSSIDList = ( NDIS_802_11_BSSID_LIST_EX *) VirtualAlloc(  NULL,
+                                                        sizeof( NDIS_802_11_BSSID_LIST_EX ) * MAX_BSSIDS,
                                                         MEM_RESERVE | MEM_COMMIT,
                                                         PAGE_READWRITE) ;
+
 
 	if( m_pBSSIDList == NULL) {
 		fprintf(stderr,"Unable to allocate memory for bssids\n");
 		}
 	else {
-        memset( m_pBSSIDList, 0, sizeof( NDIS_802_11_BSSID_LIST) * MAX_BSSIDS) ;
+        memset( m_pBSSIDList, 0, sizeof( NDIS_802_11_BSSID_LIST_EX) * MAX_BSSIDS) ;
         oidcode = OID_802_11_BSSID_LIST_SCAN ;
 		if( hDevice == INVALID_HANDLE_VALUE)
         {
@@ -56,23 +57,24 @@ void WiFiReader::BssidScan(void) {
                                 &bytesreturned,
                                 NULL) ;
 
-        Sleep(2000);
+        Sleep(3200);
 
-        memset( m_pBSSIDList, 0, sizeof( NDIS_802_11_BSSID_LIST) * MAX_BSSIDS) ;
+        memset( m_pBSSIDList, 0, sizeof( NDIS_802_11_BSSID_LIST_EX) * MAX_BSSIDS) ;
         oidcode = OID_802_11_BSSID_LIST ;
 
         if( DeviceIoControl(    hDevice,
                                 IOCTL_NDIS_QUERY_GLOBAL_STATS,
                                 &oidcode,
                                 sizeof( oidcode),
-                                ( ULONG *) m_pBSSIDList,
-                                sizeof( NDIS_802_11_BSSID_LIST) * MAX_BSSIDS,
+                                (LPVOID) &QueryBuffer[0],
+								sizeof(QueryBuffer),
                                 &bytesreturned,
                                 NULL) == 0)
 			  fprintf(stderr,"\nscan fail: %d\n", GetLastError());
-        else
+        else {
+			m_pBSSIDList = (NDIS_802_11_BSSID_LIST_EX*)QueryBuffer;
 			fprintf(stderr,"\nbssids: %d\n", m_pBSSIDList->NumberOfItems);
-       
+			}
 	}
 }
 
@@ -164,7 +166,9 @@ bool WiFiReader::openDevice( void)
                                                 full_name,
                                                 device_info,
                                                 device_description) ;
-						if (!strcmp(device_description, "Gigabyte GN-WI06N (mini) PCI Express WLAN Card"))
+						//if (!strcmp(device_description, "Gigabyte GN-WI06N (mini) PCI Express WLAN Card"))
+						//	break;
+						if (!strcmp(device_description, "NETGEAR WNA1100 N150 Wireless USB Adapter"))
 							break;
 						//if (!strcmp(device_description, "ORiNOCO 802.11bg ComboCard Gold"))
 						//	break;
@@ -206,26 +210,26 @@ void WiFiReader::captureLoop( void ) {
 	while (!stopScanners) {
 		BssidScan();
 		time(&currTime);
+		
 		for (i = 0; i < m_pBSSIDList->NumberOfItems; i++) {
 			int temp=i;
 			char macaddress[64];
-			
-			PNDIS_WLAN_BSSID cpSsid=m_pBSSIDList->Bssid;
-
+			NDIS_WLAN_BSSID_EX *bssInfo = (NDIS_WLAN_BSSID_EX *)(m_pBSSIDList->Bssid);
 			while(temp!=0 ){
-				cpSsid=(PNDIS_WLAN_BSSID)((char*)cpSsid+ cpSsid->Length);
+				bssInfo=(NDIS_WLAN_BSSID_EX *)((char*)bssInfo+ bssInfo->Length);
 				temp--;
 				}
 			fprintf(fp,"%lu\t",(unsigned long)currTime);
-			fprintf(fp,"%i\t",cpSsid->Configuration.BeaconPeriod);
-			sprintf(macaddress,"%02X-%02X-%02X-%02X-%02X-%02X",(int*)cpSsid->MacAddress[0],(int*)cpSsid->MacAddress[1],
-					(int*)m_pBSSIDList->Bssid[i].MacAddress[2],(int*)cpSsid->MacAddress[3],(int*)cpSsid->MacAddress[4],(int*)cpSsid->MacAddress[5]);
+			fprintf(fp,"%i\t",bssInfo->Configuration.BeaconPeriod);
+			sprintf(macaddress,"%02X-%02X-%02X-%02X-%02X-%02X",(int*)bssInfo->MacAddress[0],(int*)bssInfo->MacAddress[1],
+					(int*)m_pBSSIDList->Bssid[i].MacAddress[2],(int*)bssInfo->MacAddress[3],(int*)bssInfo->MacAddress[4],(int*)bssInfo->MacAddress[5]);
 			
-			int chan= cpSsid->Configuration.DSConfig;
+			int chan= bssInfo->Configuration.DSConfig;
 						chan -=2407000;
 						chan/=5000;
 			
-			fprintf(fp,"%s\t%i\t%i\t%s\n",macaddress, cpSsid->Rssi, chan, cpSsid->Ssid.Ssid);
+			fprintf(fp,"%s\t%i\t%i\t%s\n",macaddress, bssInfo->Rssi, chan, bssInfo->Ssid.Ssid);
+			bssInfo = (NDIS_WLAN_BSSID_EX*)((char*)m_pBSSIDList->Bssid + bssInfo->Length);
 			fingerprintsCapturedVal++;
 			}
 	}
@@ -258,7 +262,7 @@ int WiFiReader::disconnect() {
 		::VirtualFree(m_pBSSIDList,sizeof( NDIS_802_11_BSSID_LIST) * MAX_BSSIDS,0);
 		m_pBSSIDList =NULL;
 	}
-	
+	CloseHandle(hDevice);
 	fclose(fp);
 	return 1;
 }

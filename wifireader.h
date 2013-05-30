@@ -56,7 +56,7 @@ public:
 	DWORD dwCurVersion;
 
 	HANDLE hDevice;
-	NDIS_802_11_BSSID_LIST* m_pBSSIDList;
+	NDIS_802_11_BSSID_LIST_EX* m_pBSSIDList;
 
 
 	FILE *fp, *fp2;
