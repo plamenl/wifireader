@@ -1,11 +1,17 @@
 #ifndef _WIFIREADER_H_
 #define _WIFIREADER_H_
 
-#include <windows.h>
-#include <process.h>
-#include <stdio.h>
+#include <pcap.h>
+#include <airpcap.h>
+
 #include <objbase.h>
 #include <wtypes.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <windows.h>
+#include <process.h>
+#include <time.h>
 
 #include "winioctl.h"
 #include "ntddndis.h"
@@ -18,6 +24,7 @@
 //extern int stopScanners;		///< Global flag to know when to stop capturing scans.
 static HANDLE wifiReaderHandle;		///< Global thread handle
 static int WiFiReaderScanDone;
+
 
 class WiFiReader {
 public:
@@ -43,6 +50,10 @@ public:
 	/// @brief Returns an integer which increments at a fixed rate (e.g. once per second/cycle). This will be monitored with a watchdog timer.
 	int heartbeat();
 
+	int FreqToChan(int in_freq);
+	pcap_t *winpcap_adapter;
+	PAirpcapHandle airpcap_handle;
+
 	void BssidScan(void);
 	bool openDevice(void);
 	bool WiFiReader::get_device_info(   int Index,
@@ -60,6 +71,9 @@ public:
 
 
 	FILE *fp, *fp2;
+
+
+	int IEEE80211Freq[][2];
 };
 
 #endif

@@ -1,19 +1,31 @@
 
-#include <windows.h>
-#include <process.h>
-#include <time.h>
-#include "wifireader.h"
-#include <objbase.h>
-#include <wtypes.h>
 
-#include <stdio.h>
-#include <stdlib.h>
+#include "wifireader.h"
+
+using namespace std;
+using namespace System;
+using namespace System::Collections::Generic;
 
 // Need to link with Wlanapi.lib and Ole32.lib
 #pragma comment(lib, "ole32.lib")
+#pragma comment(lib, "wpcap.lib")
 
 extern int stopScanners;
 
+
+int WiFiReader::FreqToChan(int in_freq) {
+    int x = 0;
+    // 80211b frequencies to channels
+
+    while (IEEE80211Freq[x][1] != 0) {
+        if (IEEE80211Freq[x][1] == in_freq) {
+			fprintf(stderr,"Channel: %d\n", IEEE80211Freq[x][0]);
+            return IEEE80211Freq[x][0];
+        }
+        x++;
+    }
+    return in_freq;
+}
 void WiFiReader::startCapture( void ) {
 	 wifiReaderHandle = (HANDLE)_beginthread(WiFiReader::wifiReaderThread,0,this);	// Start thread
 }
@@ -48,14 +60,15 @@ void WiFiReader::BssidScan(void) {
         {
 			   fprintf(stderr,"invalid handle!\n");
         }
-        DeviceIoControl(        hDevice,
+        if (DeviceIoControl(        hDevice,
                                 IOCTL_NDIS_QUERY_GLOBAL_STATS,
                                 &oidcode,
                                 sizeof( oidcode),
                                 ( ULONG *) NULL,
                                 0,
                                 &bytesreturned,
-                                NULL) ;
+                                NULL) == 0)
+								fprintf(stderr,"scan error: %d\n", GetLastError());
 
         Sleep(3200);
 
@@ -130,70 +143,51 @@ bool WiFiReader::get_device_info(   int Index,
 }
 bool WiFiReader::openDevice( void)
 {
-        char device_file[ SIZEOF_DEVICE_NAME];
-		char key_name[ SIZEOF_DEVICE_NAME];
-        char full_name[ SIZEOF_DEVICE_NAME];
-        char device_info[ SIZEOF_DEVICE_NAME];
-        char device_description[ SIZEOF_DEVICE_NAME];
-		FILETIME file_time;
-		HKEY hkey;
-        int index;
-        DWORD size;
+	//pcap_t *winpcap_adapter;
+	pcap_if_t *alldevs, *d;
+	//PAirpcapHandle airpcap_handle;
+	char errbuf[PCAP_ERRBUF_SIZE];
 
-        index = 0 ;
-		if( RegOpenKeyExA(       HKEY_LOCAL_MACHINE,
-                                "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards",
-                                0,
-                                KEY_READ,
-                                &hkey) == ERROR_SUCCESS)
-			{
-            size = SIZEOF_DEVICE_NAME ;
+	if(pcap_findalldevs(&alldevs, errbuf) == -1)
+	{
+		fprintf(stderr,"Error in pcap_findalldevs_ex: %s\n", errbuf);
+		return false;
+	}
 
-            while(  RegEnumKeyExA(   hkey,
-                                        index,
-                                        key_name,
-                                        &size,
-                                        NULL,
-                                        NULL,
-                                        NULL,
-                                        &file_time) == ERROR_SUCCESS)
-                {
-                        sprintf(        full_name,
-                                        "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards\\%s",
-                                        key_name) ;
+	d = alldevs;
 
-                        get_device_info(        index,
-                                                full_name,
-                                                device_info,
-                                                device_description) ;
-						//if (!strcmp(device_description, "Gigabyte GN-WI06N (mini) PCI Express WLAN Card"))
-						//	break;
-						if (!strcmp(device_description, "NETGEAR WNA1100 N150 Wireless USB Adapter"))
-							break;
-						//if (!strcmp(device_description, "ORiNOCO 802.11bg ComboCard Gold"))
-						//	break;
-                        index++ ;
-                        size = SIZEOF_DEVICE_NAME ;
-                }
+	if((winpcap_adapter = pcap_open_live(d->name,			// name of the device
+		65536,												// portion of the packet to capture. 
+															// 65536 grants that the whole packet will be captured on all the MACs.
+		1,													// promiscuous mode (nonzero means promiscuous)
+		1000,												// read timeout, in ms
+		errbuf												// error buffer
+		)) == NULL)
+	{
+		fprintf(stderr,"Error opening adapter with winpcap (%s)\n", errbuf);
+		pcap_freealldevs(alldevs);
+		return false;
+	}
 
-                RegCloseKey( hkey) ;
-		}
-		sprintf( device_file, "\\\\.\\%s", device_info) ;
-        hDevice = CreateFileA(   device_file,
-                                0,
-                                FILE_SHARE_READ,
-                                NULL,
-                                OPEN_EXISTING,
-                                0,
-                                NULL) ;
+	//
+	// Get the airpcap handle so we can change wireless-specific settings
+	//
+	airpcap_handle = pcap_get_airpcap_handle(winpcap_adapter);
 
-		if( hDevice == INVALID_HANDLE_VALUE)
-			{
-			//fprintf(stderr,"invalid handle!!!\n");
-            return false;
-			}
-        else
-			return true;
+	if(airpcap_handle == NULL)
+	{
+		fprintf(stderr,"This adapter doesn't have wireless extensions. Quitting\n");
+		pcap_close(winpcap_adapter);
+		return false;
+	}
+
+	if(!AirpcapSetLinkType(airpcap_handle, AIRPCAP_LT_802_11_PLUS_RADIO))
+	{
+		fprintf(stderr, "Error setting the link layer: %s\n", AirpcapGetLastError(airpcap_handle));
+		pcap_close(winpcap_adapter);
+		return false;
+	}
+	pcap_freealldevs(alldevs);
 
 }
 
@@ -206,33 +200,43 @@ void WiFiReader::captureLoop( void ) {
     //int iRet = 0;
     //WCHAR GuidString[39] = {0};
     unsigned int i;
+	unsigned int num_channels=0;
+	AirpcapChannelInfo *supported_channels;
+	Dictionary<unsigned int, unsigned int> channels = gcnew Dictionary<unsigned int, unsigned int>();
+	AirpcapGetDeviceSupportedChannels	(	airpcap_handle,
+											&supported_channels,
+											(PUINT)&num_channels
+										);	
 
-	while (!stopScanners) {
+
+	for (unsigned int x = 0, i = 0; x < num_channels; x++) {
+		if (!channels.ContainsKey(supported_channels[x].Frequency))
+			channels.Add(supported_channels[x].Frequency,x);
+	}
+
+	fprintf(stderr,"count is: %d\n",channels.Count);
+
+	 for each( KeyValuePair<unsigned int, unsigned int> kvp in channels )
+        {
+            Console::WriteLine("Key = {0}, Value = {1}",
+                kvp.Key, kvp.Value);
+
+			if(!AirpcapSetDeviceChannelEx(airpcap_handle, supported_channels[kvp.Value]))
+				{
+					fprintf(stderr,"Error setting the channel: %s\n", AirpcapGetLastError(airpcap_handle));
+					continue;
+				}
+
+        }
+	/*while (!stopScanners) {
 		BssidScan();
 		time(&currTime);
 		
 		for (i = 0; i < m_pBSSIDList->NumberOfItems; i++) {
-			int temp=i;
-			char macaddress[64];
-			NDIS_WLAN_BSSID_EX *bssInfo = (NDIS_WLAN_BSSID_EX *)(m_pBSSIDList->Bssid);
-			while(temp!=0 ){
-				bssInfo=(NDIS_WLAN_BSSID_EX *)((char*)bssInfo+ bssInfo->Length);
-				temp--;
-				}
-			fprintf(fp,"%lu\t",(unsigned long)currTime);
-			fprintf(fp,"%i\t",bssInfo->Configuration.BeaconPeriod);
-			sprintf(macaddress,"%02X-%02X-%02X-%02X-%02X-%02X",(int*)bssInfo->MacAddress[0],(int*)bssInfo->MacAddress[1],
-					(int*)m_pBSSIDList->Bssid[i].MacAddress[2],(int*)bssInfo->MacAddress[3],(int*)bssInfo->MacAddress[4],(int*)bssInfo->MacAddress[5]);
 			
-			int chan= bssInfo->Configuration.DSConfig;
-						chan -=2407000;
-						chan/=5000;
-			
-			fprintf(fp,"%s\t%i\t%i\t%s\n",macaddress, bssInfo->Rssi, chan, bssInfo->Ssid.Ssid);
-			bssInfo = (NDIS_WLAN_BSSID_EX*)((char*)m_pBSSIDList->Bssid + bssInfo->Length);
 			fingerprintsCapturedVal++;
 			}
-	}
+	}*/
 }
 
 
@@ -258,11 +262,11 @@ int WiFiReader::initialize() {
 
 int WiFiReader::disconnect() {
 
-	if(m_pBSSIDList !=NULL){
-		::VirtualFree(m_pBSSIDList,sizeof( NDIS_802_11_BSSID_LIST) * MAX_BSSIDS,0);
-		m_pBSSIDList =NULL;
-	}
-	CloseHandle(hDevice);
+	//
+	// Close the libpcap handler. We don't need to close the AirPcap one, because 
+	// pcap_close takes care of it.
+	//
+	pcap_close(winpcap_adapter);
 	fclose(fp);
 	return 1;
 }
