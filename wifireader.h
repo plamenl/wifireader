@@ -10,21 +10,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <windows.h>
+#include <stddef.h> 
 #include <process.h>
 #include <time.h>
 
 #include "winioctl.h"
 #include "ntddndis.h"
+#include "util.h"
+#include "80211_dissect.h"
 
 // Need to link with Wlanapi.lib and Ole32.lib
 #pragma comment(lib, "ole32.lib")
 
 #define MAX_BSSIDS 100
 #define SIZEOF_DEVICE_NAME 256
+#define LINE_LEN 16
 //extern int stopScanners;		///< Global flag to know when to stop capturing scans.
 static HANDLE wifiReaderHandle;		///< Global thread handle
 static int WiFiReaderScanDone;
 
+ULONG RadiotapGet(const u_char *p, ULONG caplen, radio_data *rdata);
 
 class WiFiReader {
 public:
@@ -74,6 +79,7 @@ public:
 
 
 	int IEEE80211Freq[][2];
+
 };
 
 #endif

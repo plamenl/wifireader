@@ -160,7 +160,7 @@ bool WiFiReader::openDevice( void)
 		65536,												// portion of the packet to capture. 
 															// 65536 grants that the whole packet will be captured on all the MACs.
 		1,													// promiscuous mode (nonzero means promiscuous)
-		1000,												// read timeout, in ms
+		105,												// read timeout, in ms
 		errbuf												// error buffer
 		)) == NULL)
 	{
@@ -195,13 +195,16 @@ bool WiFiReader::openDevice( void)
 void WiFiReader::captureLoop( void ) {
 
     // Declare and initialize variables.
-
-
-    //int iRet = 0;
-    //WCHAR GuidString[39] = {0};
+	int res;
+	struct pcap_pkthdr *header;
+	const u_char *pkt_data;
+	ULONG RadioHdrLen;
+	u_int32_t t_channel=0;
+	radio_data rdata;
     unsigned int i;
 	unsigned int num_channels=0;
 	AirpcapChannelInfo *supported_channels;
+	rts_frame captured_frame;
 	Dictionary<unsigned int, unsigned int> channels = gcnew Dictionary<unsigned int, unsigned int>();
 	AirpcapGetDeviceSupportedChannels	(	airpcap_handle,
 											&supported_channels,
@@ -219,12 +222,84 @@ void WiFiReader::captureLoop( void ) {
 	 for each( KeyValuePair<unsigned int, unsigned int> kvp in channels )
         {
             Console::WriteLine("Key = {0}, Value = {1}",
-                kvp.Key, kvp.Value);
+                kvp.Key, kvp.Value);	
 
 			if(!AirpcapSetDeviceChannelEx(airpcap_handle, supported_channels[kvp.Value]))
 				{
 					fprintf(stderr,"Error setting the channel: %s\n", AirpcapGetLastError(airpcap_handle));
 					continue;
+				}
+			t_channel = GetTickCount();
+			//printf("NEW CHAN: %d\n", t_channel);
+			while((res = pcap_next_ex(winpcap_adapter, &header, &pkt_data)) >= 0 && (GetTickCount()-t_channel < 103))
+				{
+				
+				//printf("TICK COUNT: %d\n", GetTickCount()-t_channel);
+				if(res == 0)
+					{
+					// 
+					// Timeout elapsed
+					//
+					continue;
+					}
+
+				//
+				// print pkt timestamp and pkt len
+				//
+				//printf("%ld:%ld (%ld)\n", header->ts.tv_sec, header->ts.tv_usec, header->len);			
+				//
+				// Print radio information
+				//
+				memset(&rdata,0,sizeof(rdata));
+				RadioHdrLen = ::RadiotapGet(pkt_data, header->caplen, &rdata);
+
+				//
+				// The 802.11 packet follows the radio header
+				//
+				pkt_data += RadioHdrLen;
+
+				//
+				// Print the packet
+				//
+				//printf("\nPacket bytes:\n");
+				memcpy((void *)&captured_frame, pkt_data,sizeof(captured_frame));
+				pkt_data += sizeof(captured_frame);
+				/*for (i=1; (i < header->caplen + 1 - RadioHdrLen) ; i++)
+				{
+					printf("%.2x ", pkt_data[i - 1]);
+					if ( (i % LINE_LEN) == 0) printf("\n");
+				}*/
+				//fc_type fct;
+				//memcpy((void *)&fct, &(captured_frame.wi_frameControl), sizeof(fct));
+				if (captured_frame.wi_frameControl.type || captured_frame.wi_frameControl.subtype != 8)
+					continue;
+
+				//printf("%d %d\n",captured_frame.wi_frameControl.type, captured_frame.wi_frameControl.subtype);
+				fprintf(fp, "%ld", header->ts.tv_sec);
+				fprintf(fp,"\t%x-%x-%x", captured_frame.bssid[0], captured_frame.bssid[1], captured_frame.bssid[2], captured_frame.bssid[3]);
+				fprintf(fp,"\t%d", rdata.signal_level);
+				fprintf(fp,"\t%u", rdata.freq);
+				if (!captured_frame.tag_number) 
+					{
+					fprintf(fp,"\t");
+					//printf("ssid len: %d\n", captured_frame.tag_length);
+					//char *ssid = (char *)malloc(sizeof(char)*(captured_frame.tag_length+1));
+					//u_int8_t *ssid = (u_int8_t *)malloc(sizeof(u_int8_t)*(captured_frame.tag_length));
+					//memcpy((void *)ssid, pkt_data, sizeof(u_int8_t)*captured_frame.tag_length);
+	
+					for (UINT j = 0; j < captured_frame.tag_length; j++)
+						{
+						if (pkt_data[j])
+							fprintf(fp,"%c",pkt_data[j]);
+						}
+					//printf("ssid: %c %c %c %c\n", captured_frame.ssid[0], captured_frame.ssid[1], captured_frame.ssid[2], captured_frame.ssid[3]);
+					}
+				fprintf(fp,"\n");		
+				}
+
+			if(res == -1)
+				{
+				printf("Error reading the packets: %s\n", pcap_geterr(winpcap_adapter));
 				}
 
         }
