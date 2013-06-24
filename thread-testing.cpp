@@ -10,7 +10,7 @@ int main()
 	WiFiReader w;
 	w.initialize();
 	w.startCapture();
-	for (int i = 0; i < 150000 ; i++) {
+	for (int i = 0; i < 150; i++) {
 		Sleep(200);
 		//fprintf(stderr,"\n[%i] heartbeat = %i, fingerprintsCaptured = %i",
 		//i,w.heartbeat(),w.fingerprintsCaptured());

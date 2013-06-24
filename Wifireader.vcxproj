@@ -35,8 +35,8 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>D:\airpcap\developers\WinPcap_Devpack\Include\;D:\airpcap\developers\Airpcap_Devpack\include;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\airpcap\developers\Airpcap_Devpack\lib;D:\airpcap\developers\WinPcap_Devpack\Lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>C:\airpcap\developers\WinPcap_Devpack\Include\;C:\airpcap\developers\Airpcap_Devpack\include;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\airpcap\developers\Airpcap_Devpack\lib;C:\airpcap\developers\WinPcap_Devpack\Lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>true</LinkIncremental>

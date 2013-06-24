@@ -160,7 +160,7 @@ bool WiFiReader::openDevice( void)
 		65536,												// portion of the packet to capture. 
 															// 65536 grants that the whole packet will be captured on all the MACs.
 		1,													// promiscuous mode (nonzero means promiscuous)
-		105,												// read timeout, in ms
+		1,													// read timeout, in ms
 		errbuf												// error buffer
 		)) == NULL)
 	{
@@ -217,12 +217,24 @@ void WiFiReader::captureLoop( void ) {
 			channels.Add(supported_channels[x].Frequency,x);
 	}
 
-	fprintf(stderr,"count is: %d\n",channels.Count);
-
+	//fprintf(stderr,"count is: %d\n",channels.Count);
+	while (!stopScanners)
+	{
+	 time(&currTime);
 	 for each( KeyValuePair<unsigned int, unsigned int> kvp in channels )
         {
-            Console::WriteLine("Key = {0}, Value = {1}",
-                kvp.Key, kvp.Value);	
+			if (stopScanners)
+				break;
+
+
+			if (kvp.Key < 3000 && (kvp.Key != 2412 && kvp.Key != 2437 && kvp.Key != 2462))
+				continue;
+			// skip the 4.9GHz channels
+			if (kvp.Key > 4000 && kvp.Key < 5150)
+				continue;
+
+            //Console::WriteLine("Key = {0}, Value = {1}",
+            //    kvp.Key, kvp.Value);	
 
 			if(!AirpcapSetDeviceChannelEx(airpcap_handle, supported_channels[kvp.Value]))
 				{
@@ -231,7 +243,7 @@ void WiFiReader::captureLoop( void ) {
 				}
 			t_channel = GetTickCount();
 			//printf("NEW CHAN: %d\n", t_channel);
-			while((res = pcap_next_ex(winpcap_adapter, &header, &pkt_data)) >= 0 && (GetTickCount()-t_channel < 103))
+			while((res = pcap_next_ex(winpcap_adapter, &header, &pkt_data)) >= 0 && (GetTickCount()-t_channel < 100))
 				{
 				
 				//printf("TICK COUNT: %d\n", GetTickCount()-t_channel);
@@ -264,18 +276,11 @@ void WiFiReader::captureLoop( void ) {
 				//printf("\nPacket bytes:\n");
 				memcpy((void *)&captured_frame, pkt_data,sizeof(captured_frame));
 				pkt_data += sizeof(captured_frame);
-				/*for (i=1; (i < header->caplen + 1 - RadioHdrLen) ; i++)
-				{
-					printf("%.2x ", pkt_data[i - 1]);
-					if ( (i % LINE_LEN) == 0) printf("\n");
-				}*/
-				//fc_type fct;
-				//memcpy((void *)&fct, &(captured_frame.wi_frameControl), sizeof(fct));
+				
 				if (captured_frame.wi_frameControl.type || captured_frame.wi_frameControl.subtype != 8)
 					continue;
 
-				//printf("%d %d\n",captured_frame.wi_frameControl.type, captured_frame.wi_frameControl.subtype);
-				fprintf(fp, "%ld", header->ts.tv_sec);
+				fprintf(fp, "%ld\t%ld", header->ts.tv_sec,currTime);
 				fprintf(fp,"\t");
 				for (int j = 0; j < 3; j++)
 					{
@@ -283,23 +288,17 @@ void WiFiReader::captureLoop( void ) {
 					if (j < 2)
 						fprintf(fp,"-");
 					}	
-				//fprintf(fp,"\t%x-%x-%x", captured_frame.bssid[0], captured_frame.bssid[1], captured_frame.bssid[2], captured_frame.bssid[3]);
 				fprintf(fp,"\t%d", rdata.signal_level);
 				fprintf(fp,"\t%u", rdata.freq);
 				if (!captured_frame.tag_number) 
 					{
 					fprintf(fp,"\t");
-					//printf("ssid len: %d\n", captured_frame.tag_length);
-					//char *ssid = (char *)malloc(sizeof(char)*(captured_frame.tag_length+1));
-					//u_int8_t *ssid = (u_int8_t *)malloc(sizeof(u_int8_t)*(captured_frame.tag_length));
-					//memcpy((void *)ssid, pkt_data, sizeof(u_int8_t)*captured_frame.tag_length);
-	
+					
 					for (UINT j = 0; j < captured_frame.tag_length; j++)
 						{
 						if (pkt_data[j])
 							fprintf(fp,"%c",pkt_data[j]);
 						}
-					//printf("ssid: %c %c %c %c\n", captured_frame.ssid[0], captured_frame.ssid[1], captured_frame.ssid[2], captured_frame.ssid[3]);
 					}
 				fprintf(fp,"\n");		
 				}
@@ -310,6 +309,7 @@ void WiFiReader::captureLoop( void ) {
 				}
 
         }
+	}
 	/*while (!stopScanners) {
 		BssidScan();
 		time(&currTime);
