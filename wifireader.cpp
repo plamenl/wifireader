@@ -276,7 +276,14 @@ void WiFiReader::captureLoop( void ) {
 
 				//printf("%d %d\n",captured_frame.wi_frameControl.type, captured_frame.wi_frameControl.subtype);
 				fprintf(fp, "%ld", header->ts.tv_sec);
-				fprintf(fp,"\t%x-%x-%x", captured_frame.bssid[0], captured_frame.bssid[1], captured_frame.bssid[2], captured_frame.bssid[3]);
+				fprintf(fp,"\t");
+				for (int j = 0; j < 3; j++)
+					{
+					write_swapped_bytes(captured_frame.bssid[j], fp);
+					if (j < 2)
+						fprintf(fp,"-");
+					}	
+				//fprintf(fp,"\t%x-%x-%x", captured_frame.bssid[0], captured_frame.bssid[1], captured_frame.bssid[2], captured_frame.bssid[3]);
 				fprintf(fp,"\t%d", rdata.signal_level);
 				fprintf(fp,"\t%u", rdata.freq);
 				if (!captured_frame.tag_number) 
