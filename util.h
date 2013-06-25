@@ -2,7 +2,7 @@
 #include <Windows.h>
 
 unsigned short swaps( unsigned short val);
-void write_swapped_bytes(ULONG bytes, FILE *fp);
+void write_swapped_bytes(USHORT bytes, FILE *fp);
 
 typedef struct {
 	CHAR signal_level;

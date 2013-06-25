@@ -159,7 +159,7 @@ bool WiFiReader::openDevice( void)
 	if((winpcap_adapter = pcap_open_live(d->name,			// name of the device
 		65536,												// portion of the packet to capture. 
 															// 65536 grants that the whole packet will be captured on all the MACs.
-		1,													// promiscuous mode (nonzero means promiscuous)
+		0,													// promiscuous mode (nonzero means promiscuous)
 		1,													// read timeout, in ms
 		errbuf												// error buffer
 		)) == NULL)
@@ -200,6 +200,7 @@ void WiFiReader::captureLoop( void ) {
 	const u_char *pkt_data;
 	ULONG RadioHdrLen;
 	u_int32_t t_channel=0;
+	u_int32_t t_change=0;
 	radio_data rdata;
     unsigned int i;
 	unsigned int num_channels=0;
@@ -235,12 +236,13 @@ void WiFiReader::captureLoop( void ) {
 
             //Console::WriteLine("Key = {0}, Value = {1}",
             //    kvp.Key, kvp.Value);	
-
+			t_change = GetTickCount();
 			if(!AirpcapSetDeviceChannelEx(airpcap_handle, supported_channels[kvp.Value]))
 				{
 					fprintf(stderr,"Error setting the channel: %s\n", AirpcapGetLastError(airpcap_handle));
 					continue;
 				}
+			printf("TIME TO CHANGE: %d\n", GetTickCount()-t_change);
 			t_channel = GetTickCount();
 			//printf("NEW CHAN: %d\n", t_channel);
 			while((res = pcap_next_ex(winpcap_adapter, &header, &pkt_data)) >= 0 && (GetTickCount()-t_channel < 100))
