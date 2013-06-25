@@ -157,7 +157,7 @@ bool WiFiReader::openDevice( void)
 	d = alldevs;
 
 	if((winpcap_adapter = pcap_open_live(d->name,			// name of the device
-		65536,												// portion of the packet to capture. 
+		1024,												// portion of the packet to capture. 
 															// 65536 grants that the whole packet will be captured on all the MACs.
 		0,													// promiscuous mode (nonzero means promiscuous)
 		1,													// read timeout, in ms
@@ -236,16 +236,17 @@ void WiFiReader::captureLoop( void ) {
 
             //Console::WriteLine("Key = {0}, Value = {1}",
             //    kvp.Key, kvp.Value);	
-			t_change = GetTickCount();
+			//t_change = GetTickCount();
+			//AirpcapSetDeviceChannel(airpcap_handle, 1);
 			if(!AirpcapSetDeviceChannelEx(airpcap_handle, supported_channels[kvp.Value]))
 				{
 					fprintf(stderr,"Error setting the channel: %s\n", AirpcapGetLastError(airpcap_handle));
 					continue;
 				}
-			printf("TIME TO CHANGE: %d\n", GetTickCount()-t_change);
+			//printf("TIME TO CHANGE: %d\n", GetTickCount()-t_change);
 			t_channel = GetTickCount();
 			//printf("NEW CHAN: %d\n", t_channel);
-			while((res = pcap_next_ex(winpcap_adapter, &header, &pkt_data)) >= 0 && (GetTickCount()-t_channel < 100))
+			while((res = pcap_next_ex(winpcap_adapter, &header, &pkt_data)) >= 0 && (GetTickCount()-t_channel < 80))
 				{
 				
 				//printf("TICK COUNT: %d\n", GetTickCount()-t_channel);
@@ -311,6 +312,7 @@ void WiFiReader::captureLoop( void ) {
 				}
 
         }
+		fingerprintsCapturedVal++;
 	}
 	/*while (!stopScanners) {
 		BssidScan();
