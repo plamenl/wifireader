@@ -283,7 +283,7 @@ void WiFiReader::captureLoop( void ) {
 				if (captured_frame.wi_frameControl.type || captured_frame.wi_frameControl.subtype != 8)
 					continue;
 
-				fprintf(fp, "%ld\t%ld", header->ts.tv_sec,currTime);
+				fprintf(fp, "%ld\t%ld\t%ld", header->ts.tv_sec, header->ts.tv_usec,currTime);
 				fprintf(fp,"\t");
 				for (int j = 0; j < 3; j++)
 					{
