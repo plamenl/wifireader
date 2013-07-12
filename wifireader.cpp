@@ -336,7 +336,7 @@ void WiFiReader::captureLoop( void ) {
 	//fprintf(stderr,"count is: %d\n",channels.Count);
 	cardId = 0;
 	_beginthread(WiFiReader::changeFreqThread,0,this);
-	Sleep(20);
+	Sleep(40);
 	cardId = 1;
 	_beginthread(WiFiReader::changeFreqThread,0,this);
 	Sleep(40);
