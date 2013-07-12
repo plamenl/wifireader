@@ -46,6 +46,9 @@ public:
 	void captureLoop( void );
 	//static void captureCallback(WLAN_NOTIFICATION_DATA *wlanNotifData,VOID *p);
 	
+	void changeFreq( void); 
+	static void changeFreqThread (void * p);
+
 	/// @brief Shutdown wifi interface, any necesary cleanup.
 	int disconnect();	
 
@@ -56,8 +59,8 @@ public:
 	int heartbeat();
 
 	int FreqToChan(int in_freq);
-	pcap_t *winpcap_adapter;
-	PAirpcapHandle airpcap_handle;
+	pcap_t *winpcap_adapter1, *winpcap_adapter2, *winpcap_adapter_multi;
+	PAirpcapHandle airpcap_handle_multi, airpcap_handle1, airpcap_handle2;
 
 	void BssidScan(void);
 	bool openDevice(void);
@@ -76,7 +79,7 @@ public:
 
 
 	FILE *fp, *fp2;
-
+	int cardId;
 
 	int IEEE80211Freq[][2];
 
