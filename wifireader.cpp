@@ -92,7 +92,7 @@ void WiFiReader::changeFreq( void) {
 					fprintf(stderr,"Error setting the channel: %s\n", AirpcapGetLastError(curr_airpcap_handle));
 					continue;
 				}
-			Sleep(102);
+			Sleep(100);
 			}
 		fingerprintsCapturedVal++;
 		}
@@ -227,7 +227,7 @@ bool WiFiReader::openDevice( void)
 	d = alldevs;
 	
 	if((winpcap_adapter1 = pcap_open_live("\\\\.\\airpcap00",			// name of the device
-		256,												// portion of the packet to capture. 
+		0,												// portion of the packet to capture. 
 															// 65536 grants that the whole packet will be captured on all the MACs.
 		0,													// promiscuous mode (nonzero means promiscuous)
 		1,													// read timeout, in ms
@@ -240,7 +240,7 @@ bool WiFiReader::openDevice( void)
 	}
 
 	if((winpcap_adapter2 = pcap_open_live("\\\\.\\airpcap01",			// name of the device
-		256,												// portion of the packet to capture. 
+		0,												// portion of the packet to capture. 
 															// 65536 grants that the whole packet will be captured on all the MACs.
 		0,													// promiscuous mode (nonzero means promiscuous)
 		1,													// read timeout, in ms
@@ -253,7 +253,7 @@ bool WiFiReader::openDevice( void)
 	}
 
 	if((winpcap_adapter3 = pcap_open_live("\\\\.\\airpcap02",			// name of the device
-		256,												// portion of the packet to capture. 
+		0,												// portion of the packet to capture. 
 															// 65536 grants that the whole packet will be captured on all the MACs.
 		0,													// promiscuous mode (nonzero means promiscuous)
 		1,													// read timeout, in ms
@@ -266,7 +266,7 @@ bool WiFiReader::openDevice( void)
 	}
 
 	if((winpcap_adapter_multi = pcap_open_live("\\\\.\\airpcap_any",			// name of the device
-		256,												// portion of the packet to capture. 
+		0,												// portion of the packet to capture. 
 															// 65536 grants that the whole packet will be captured on all the MACs.
 		0,													// promiscuous mode (nonzero means promiscuous)
 		1,													// read timeout, in ms
@@ -336,10 +336,10 @@ void WiFiReader::captureLoop( void ) {
 	//fprintf(stderr,"count is: %d\n",channels.Count);
 	cardId = 0;
 	_beginthread(WiFiReader::changeFreqThread,0,this);
-	Sleep(10);
+	Sleep(20);
 	cardId = 1;
 	_beginthread(WiFiReader::changeFreqThread,0,this);
-	Sleep(10);
+	Sleep(40);
 	cardId = 2;
 	_beginthread(WiFiReader::changeFreqThread,0,this);
 	while (!stopScanners)
