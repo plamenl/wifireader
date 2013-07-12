@@ -47,9 +47,15 @@ void WiFiReader::changeFreq( void) {
 	unsigned int num_channels=0;
 	int curr_card = cardId;
 	Dictionary<unsigned int, unsigned int> channels = gcnew Dictionary<unsigned int, unsigned int>();
+	//printf("\nCard is is: %d\n", curr_card);
 
 	if (!curr_card)
 		curr_airpcap_handle = airpcap_handle1;
+	else if (curr_card == 1)
+		curr_airpcap_handle = airpcap_handle2;
+	else
+		curr_airpcap_handle = airpcap_handle3;
+
 	AirpcapGetDeviceSupportedChannels	(	curr_airpcap_handle,
 											&supported_channels,
 											(PUINT)&num_channels
@@ -58,22 +64,29 @@ void WiFiReader::changeFreq( void) {
 
 	for (unsigned int x = 0, i = 0; x < num_channels; x++) {
 		if (!channels.ContainsKey(supported_channels[x].Frequency))
+			{
 			channels.Add(supported_channels[x].Frequency,x);
+			//fprintf(fp,"%ld %ld\n",supported_channels[x].Frequency, x);
+			}
 	}
-	printf("\nCard is is: %d\n", curr_card);
+	
 	while (!stopScanners)
 		{
 		for each( KeyValuePair<unsigned int, unsigned int> kvp in channels )
 			{
-
-			//if (kvp.Key < 3000 && (kvp.Key != 2412 && kvp.Key != 2437 && kvp.Key != 2462))
-			if (kvp.Key > 3000)
-				continue;
 			// skip the 4.9GHz channels
 			if (kvp.Key > 4000 && kvp.Key < 5150)
 				continue;
 
-            printf("\nSetting channel for card %d: %d\n", curr_card, kvp.Key);
+			//if (kvp.Key < 3000 && (kvp.Key != 2412 && kvp.Key != 2437 && kvp.Key != 2462))
+			if (!curr_card && kvp.Key > 2484)
+				continue;
+			else if (curr_card == 1 && (kvp.Key < 5170 || kvp.Key > 5520))
+				continue;
+			else if (curr_card == 2 && kvp.Key < 5540)
+				continue;
+
+            fprintf(fp,"\nSetting channel for card %d: %d\n", curr_card, kvp.Key);
 			if(!AirpcapSetDeviceChannelEx(curr_airpcap_handle, supported_channels[kvp.Value]))
 				{
 					fprintf(stderr,"Error setting the channel: %s\n", AirpcapGetLastError(curr_airpcap_handle));
@@ -239,6 +252,19 @@ bool WiFiReader::openDevice( void)
 		//return false;
 	}
 
+	if((winpcap_adapter3 = pcap_open_live("\\\\.\\airpcap02",			// name of the device
+		256,												// portion of the packet to capture. 
+															// 65536 grants that the whole packet will be captured on all the MACs.
+		0,													// promiscuous mode (nonzero means promiscuous)
+		1,													// read timeout, in ms
+		errbuf												// error buffer
+		)) == NULL)
+	{
+		fprintf(stderr,"Error opening adapter with winpcap (%s)\n", errbuf);
+		//pcap_freealldevs(alldevs);
+		//return false;
+	}
+
 	if((winpcap_adapter_multi = pcap_open_live("\\\\.\\airpcap_any",			// name of the device
 		256,												// portion of the packet to capture. 
 															// 65536 grants that the whole packet will be captured on all the MACs.
@@ -257,6 +283,7 @@ bool WiFiReader::openDevice( void)
 	//
 	airpcap_handle1 = pcap_get_airpcap_handle(winpcap_adapter1);
 	airpcap_handle2 = pcap_get_airpcap_handle(winpcap_adapter2);
+	airpcap_handle3 = pcap_get_airpcap_handle(winpcap_adapter3);
 	airpcap_handle_multi = pcap_get_airpcap_handle(winpcap_adapter_multi);
 
 	if(airpcap_handle1 == NULL)
@@ -277,6 +304,13 @@ bool WiFiReader::openDevice( void)
 	{
 		fprintf(stderr, "Error setting the link layer: %s\n", AirpcapGetLastError(airpcap_handle2));
 		pcap_close(winpcap_adapter2);
+
+	}
+
+	if(!AirpcapSetLinkType(airpcap_handle3, AIRPCAP_LT_802_11_PLUS_RADIO))
+	{
+		fprintf(stderr, "Error setting the link layer: %s\n", AirpcapGetLastError(airpcap_handle3));
+		pcap_close(winpcap_adapter3);
 
 	}
 
@@ -304,6 +338,10 @@ void WiFiReader::captureLoop( void ) {
 	_beginthread(WiFiReader::changeFreqThread,0,this);
 	Sleep(10);
 	cardId = 1;
+	_beginthread(WiFiReader::changeFreqThread,0,this);
+	Sleep(10);
+	cardId = 2;
+	_beginthread(WiFiReader::changeFreqThread,0,this);
 	while (!stopScanners)
 		{
 		time(&currTime);

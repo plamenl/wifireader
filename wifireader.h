@@ -59,8 +59,8 @@ public:
 	int heartbeat();
 
 	int FreqToChan(int in_freq);
-	pcap_t *winpcap_adapter1, *winpcap_adapter2, *winpcap_adapter_multi;
-	PAirpcapHandle airpcap_handle_multi, airpcap_handle1, airpcap_handle2;
+	pcap_t *winpcap_adapter1, *winpcap_adapter2, *winpcap_adapter3, *winpcap_adapter_multi;
+	PAirpcapHandle airpcap_handle_multi, airpcap_handle1, airpcap_handle2, airpcap_handle3;
 
 	void BssidScan(void);
 	bool openDevice(void);
