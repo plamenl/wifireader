@@ -2,7 +2,6 @@
 
 #include "wifireader.h"
 
-using namespace std;
 using namespace System;
 using namespace System::Collections::Generic;
 
@@ -47,7 +46,7 @@ void WiFiReader::changeFreq( void) {
 	unsigned int num_channels=0;
 	int curr_card = cardId;
 	Dictionary<unsigned int, unsigned int> channels = gcnew Dictionary<unsigned int, unsigned int>();
-	//printf("\nCard is is: %d\n", curr_card);
+	printf("\nCard is: %d\n", curr_card);
 
 	if (!curr_card)
 		curr_airpcap_handle = airpcap_handle1;
@@ -61,12 +60,11 @@ void WiFiReader::changeFreq( void) {
 											(PUINT)&num_channels
 										);	
 
-
 	for (unsigned int x = 0, i = 0; x < num_channels; x++) {
 		if (!channels.ContainsKey(supported_channels[x].Frequency))
 			{
 			channels.Add(supported_channels[x].Frequency,x);
-			//fprintf(fp,"%ld %ld\n",supported_channels[x].Frequency, x);
+			//printf("%d %ld %ld\n",curr_card, supported_channels[x].Frequency, x);
 			}
 	}
 	
@@ -74,6 +72,8 @@ void WiFiReader::changeFreq( void) {
 		{
 		for each( KeyValuePair<unsigned int, unsigned int> kvp in channels )
 			{
+			if (stopScanners)
+				break;
 			// skip the 4.9GHz channels
 			if (kvp.Key > 4000 && kvp.Key < 5150)
 				continue;
@@ -85,16 +85,20 @@ void WiFiReader::changeFreq( void) {
 				continue;
 			else if (curr_card == 2 && kvp.Key < 5540)
 				continue;
-
-            fprintf(fp,"\nSetting channel for card %d: %d\n", curr_card, kvp.Key);
+			//printf("Setting channel for card %d: %d\n", curr_card, kvp.Key);
+            fprintf(fp,"Setting channel for card %d: %d\n", curr_card, kvp.Key);
+			if (kvp.Key == 5540)
+				time(&(this->currTime));
 			if(!AirpcapSetDeviceChannelEx(curr_airpcap_handle, supported_channels[kvp.Value]))
 				{
 					fprintf(stderr,"Error setting the channel: %s\n", AirpcapGetLastError(curr_airpcap_handle));
 					continue;
 				}
-			Sleep(102);
+
+			Sleep(100);
 			}
 		fingerprintsCapturedVal++;
+		printf("In card %d fingerprints: %d\n", curr_card, fingerprintsCapturedVal);
 		}
 }
 
@@ -206,9 +210,7 @@ bool WiFiReader::get_device_info(   int Index,
 }
 bool WiFiReader::openDevice( void)
 {
-	//pcap_t *winpcap_adapter;
 	pcap_if_t *alldevs, *d;
-	//PAirpcapHandle airpcap_handle;
 	char errbuf[PCAP_ERRBUF_SIZE];
 
 	if(pcap_findalldevs(&alldevs, errbuf) == -1)
@@ -227,20 +229,20 @@ bool WiFiReader::openDevice( void)
 	d = alldevs;
 	
 	if((winpcap_adapter1 = pcap_open_live("\\\\.\\airpcap00",			// name of the device
-		256,												// portion of the packet to capture. 
+		0,												// portion of the packet to capture. 
 															// 65536 grants that the whole packet will be captured on all the MACs.
 		0,													// promiscuous mode (nonzero means promiscuous)
 		1,													// read timeout, in ms
 		errbuf												// error buffer
 		)) == NULL)
 	{
-		fprintf(stderr,"Error opening adapter with winpcap (%s)\n", errbuf);
+		//fprintf(stderr,"Error opening adapter with winpcap (%s)\n", errbuf);
 		pcap_freealldevs(alldevs);
 		return false;
 	}
 
 	if((winpcap_adapter2 = pcap_open_live("\\\\.\\airpcap01",			// name of the device
-		256,												// portion of the packet to capture. 
+		0,												// portion of the packet to capture. 
 															// 65536 grants that the whole packet will be captured on all the MACs.
 		0,													// promiscuous mode (nonzero means promiscuous)
 		1,													// read timeout, in ms
@@ -253,7 +255,7 @@ bool WiFiReader::openDevice( void)
 	}
 
 	if((winpcap_adapter3 = pcap_open_live("\\\\.\\airpcap02",			// name of the device
-		256,												// portion of the packet to capture. 
+		0,												// portion of the packet to capture. 
 															// 65536 grants that the whole packet will be captured on all the MACs.
 		0,													// promiscuous mode (nonzero means promiscuous)
 		1,													// read timeout, in ms
@@ -266,16 +268,16 @@ bool WiFiReader::openDevice( void)
 	}
 
 	if((winpcap_adapter_multi = pcap_open_live("\\\\.\\airpcap_any",			// name of the device
-		256,												// portion of the packet to capture. 
+		0,												// portion of the packet to capture. 
 															// 65536 grants that the whole packet will be captured on all the MACs.
 		0,													// promiscuous mode (nonzero means promiscuous)
 		1,													// read timeout, in ms
 		errbuf												// error buffer
 		)) == NULL)
 	{
-		fprintf(stderr,"Error opening adapter with winpcap (%s)\n", errbuf);
-		//pcap_freealldevs(alldevs);
-		//return false;
+		printf("Error opening adapter with winpcap (%s)\n", errbuf);
+		pcap_freealldevs(alldevs);
+		return false;
 	}
 
 	//
@@ -314,6 +316,7 @@ bool WiFiReader::openDevice( void)
 
 	}
 
+
 	pcap_freealldevs(alldevs);
 
 }
@@ -331,27 +334,31 @@ void WiFiReader::captureLoop( void ) {
 	radio_data rdata;
     unsigned int i;
 	rts_frame captured_frame;
+	AirpcapChannelInfo *supported_channels;
+	unsigned int num_channels=0;
 	
-
+	fopen_s(&fp,"wifiout.dat","wb");
+	time(&currTime);
 	//fprintf(stderr,"count is: %d\n",channels.Count);
+	printf("Starting threads\n");
 	cardId = 0;
 	_beginthread(WiFiReader::changeFreqThread,0,this);
-	Sleep(10);
+	Sleep(40);
 	cardId = 1;
 	_beginthread(WiFiReader::changeFreqThread,0,this);
-	Sleep(10);
+	Sleep(40);
 	cardId = 2;
 	_beginthread(WiFiReader::changeFreqThread,0,this);
+	printf("Threads started\n");
+	Sleep(100);
+
 	while (!stopScanners)
 		{
-		time(&currTime);
-	 
-		//printf("TIME TO CHANGE: %d\n", GetTickCount()-t_change);
-		t_channel = GetTickCount();
-		//printf("NEW CHAN: %d\n", t_channel);
-		while((res = pcap_next_ex(winpcap_adapter_multi, &header, &pkt_data)) >= 0 && (GetTickCount()-t_channel < 80))
+		
+		while((res = pcap_next_ex(winpcap_adapter_multi, &header, &pkt_data)) >= 0 )
 				{		
-				//printf("TICK COUNT: %d\n", GetTickCount()-t_channel);
+				if (stopScanners)
+					break;
 				if(res == 0)
 					{
 					// 
@@ -375,16 +382,13 @@ void WiFiReader::captureLoop( void ) {
 				//
 				pkt_data += RadioHdrLen;
 
-				//
-				// Print the packet
-				//
-				//printf("\nPacket bytes:\n");
 				memcpy((void *)&captured_frame, pkt_data,sizeof(captured_frame));
 				pkt_data += sizeof(captured_frame);
-				
+
+				//Only interested in beacons
 				if (captured_frame.wi_frameControl.type || captured_frame.wi_frameControl.subtype != 8)
 					continue;
-
+				
 				fprintf(fp, "%ld\t%ld\t%ld", header->ts.tv_sec, header->ts.tv_usec,currTime);
 				fprintf(fp,"\t");
 				for (int j = 0; j < 3; j++)
@@ -392,7 +396,8 @@ void WiFiReader::captureLoop( void ) {
 					write_swapped_bytes(captured_frame.bssid[j], fp);
 					if (j < 2)
 						fprintf(fp,"-");
-					}	
+					}
+				
 				fprintf(fp,"\t%d", rdata.signal_level);
 				fprintf(fp,"\t%u", rdata.freq);
 				if (!captured_frame.tag_number) 
@@ -401,21 +406,26 @@ void WiFiReader::captureLoop( void ) {
 					
 					for (UINT j = 0; j < captured_frame.tag_length; j++)
 						{
-						if (pkt_data[j])
+						int test_byte = pkt_data[j];
+						if (pkt_data[j] && test_byte < 128 && test_byte >= 32)
 							fprintf(fp,"%c",pkt_data[j]);
 						}
 					}
+		
 				fprintf(fp,"\n");		
 				}
 
 			if(res == -1)
 				{
-				printf("Error reading the packets: %s\n", pcap_geterr(winpcap_adapter_multi));
+				//printf("Error reading the packets: %s\n", pcap_geterr(winpcap_adapter_multi));
 				}
 
   
 		
 	}
+	if (this->fp)
+		fclose(this->fp);
+	printf("DONE!");
 	
 }
 
@@ -433,7 +443,6 @@ int WiFiReader::initialize() {
 	time(&currTime);
 	WiFiReaderScanDone = 1;
 
-	fopen_s(&fp,"wifiout.dat","w");	// can make this an input
 	if (WiFiReader::openDevice())
 		return 0;
 	else
@@ -448,8 +457,10 @@ int WiFiReader::disconnect() {
 	//
 	pcap_close(winpcap_adapter1);
 	pcap_close(winpcap_adapter2);
-	pcap_close(winpcap_adapter_multi);
-	fclose(fp);
+	pcap_close(winpcap_adapter3);
+	//pcap_close(winpcap_adapter_multi);
+	//if (fp)
+	//	fclose(fp);
 	return 1;
 }
 
