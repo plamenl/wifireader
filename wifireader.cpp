@@ -95,7 +95,6 @@ void WiFiReader::changeFreq( void) {
 					continue;
 				}
 
-			Sleep(100);
 			}
 		fingerprintsCapturedVal++;
 		printf("In card %d fingerprints: %d\n", curr_card, fingerprintsCapturedVal);
