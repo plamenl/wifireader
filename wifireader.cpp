@@ -61,7 +61,17 @@ void WiFiReader::changeFreq( void) {
 										);	
 
 	for (unsigned int x = 0, i = 0; x < num_channels; x++) {
-		if (!channels.ContainsKey(supported_channels[x].Frequency))
+		if (!channels.ContainsKey(supported_channels[x].Frequency)
+			&& supported_channels[x].Frequency != 2467
+			&& supported_channels[x].Frequency != 2472
+			&& supported_channels[x].Frequency != 2484
+			&& supported_channels[x].Frequency != 5190
+			&& supported_channels[x].Frequency != 5210
+			&& supported_channels[x].Frequency != 5230
+			&& supported_channels[x].Frequency != 5600
+			&& supported_channels[x].Frequency != 5620
+			&& supported_channels[x].Frequency != 5640
+			)
 			{
 			channels.Add(supported_channels[x].Frequency,x);
 			//printf("%d %ld %ld\n",curr_card, supported_channels[x].Frequency, x);
@@ -75,25 +85,28 @@ void WiFiReader::changeFreq( void) {
 			if (stopScanners)
 				break;
 			// skip the 4.9GHz channels
-			if (kvp.Key > 4000 && kvp.Key < 5150)
+			if (kvp.Key > 4000 && kvp.Key < 5180)
 				continue;
 
-			//if (kvp.Key < 3000 && (kvp.Key != 2412 && kvp.Key != 2437 && kvp.Key != 2462))
-			if (!curr_card && kvp.Key > 2484)
+			// only channels 1, 6, 11 in 2.4GHz
+			if (kvp.Key < 3000 && (kvp.Key != 2412 && kvp.Key != 2437 && kvp.Key != 2462))
 				continue;
-			else if (curr_card == 1 && (kvp.Key < 5170 || kvp.Key > 5520))
+			if (!curr_card && kvp.Key > 5260)
 				continue;
-			else if (curr_card == 2 && kvp.Key < 5540)
+			else if (curr_card == 1 && (kvp.Key < 5280 || kvp.Key > 5580))
+				continue;
+			else if (curr_card == 2 && kvp.Key < 5660)
 				continue;
 			//printf("Setting channel for card %d: %d\n", curr_card, kvp.Key);
-            fprintf(fp,"Setting channel for card %d: %d\n", curr_card, kvp.Key);
-			if (kvp.Key == 5540)
+            //fprintf(fp,"Setting channel for card %d: %d\n", curr_card, kvp.Key);
+			if (kvp.Key == 5660)
 				time(&(this->currTime));
 			if(!AirpcapSetDeviceChannelEx(curr_airpcap_handle, supported_channels[kvp.Value]))
 				{
 					fprintf(stderr,"Error setting the channel: %s\n", AirpcapGetLastError(curr_airpcap_handle));
 					continue;
 				}
+			Sleep(102);
 
 			}
 		fingerprintsCapturedVal++;
@@ -424,7 +437,7 @@ void WiFiReader::captureLoop( void ) {
 	}
 	if (this->fp)
 		fclose(this->fp);
-	printf("DONE!");
+	//printf("DONE!");
 	
 }
 
