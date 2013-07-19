@@ -22,8 +22,7 @@
 // Need to link with Wlanapi.lib and Ole32.lib
 #pragma comment(lib, "ole32.lib")
 
-#define MAX_BSSIDS 100
-#define SIZEOF_DEVICE_NAME 256
+
 #define LINE_LEN 16
 //extern int stopScanners;		///< Global flag to know when to stop capturing scans.
 static HANDLE wifiReaderHandle;		///< Global thread handle
@@ -62,26 +61,11 @@ public:
 	pcap_t *winpcap_adapter1, *winpcap_adapter2, *winpcap_adapter3, *winpcap_adapter_multi;
 	PAirpcapHandle airpcap_handle_multi, airpcap_handle1, airpcap_handle2, airpcap_handle3;
 
-	void BssidScan(void);
 	bool openDevice(void);
-	bool WiFiReader::get_device_info(   int Index,
-                        char *key_name,
-                        char *device_info,
-                        char *device_description);
 	int fingerprintsCapturedVal;
 	time_t currTime;
-
-	HANDLE hClient;
-	DWORD dwCurVersion;
-
-	HANDLE hDevice;
-	NDIS_802_11_BSSID_LIST_EX* m_pBSSIDList;
-
-
-	FILE *fp, *fp2;
+	FILE *fp;
 	int cardId;
-
-	int IEEE80211Freq[][2];
 
 };
 

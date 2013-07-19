@@ -12,19 +12,7 @@ using namespace System::Collections::Generic;
 extern int stopScanners;
 
 
-int WiFiReader::FreqToChan(int in_freq) {
-    int x = 0;
-    // 80211b frequencies to channels
 
-    while (IEEE80211Freq[x][1] != 0) {
-        if (IEEE80211Freq[x][1] == in_freq) {
-			fprintf(stderr,"Channel: %d\n", IEEE80211Freq[x][0]);
-            return IEEE80211Freq[x][0];
-        }
-        x++;
-    }
-    return in_freq;
-}
 void WiFiReader::startCapture( void ) {
 	 wifiReaderHandle = (HANDLE)_beginthread(WiFiReader::wifiReaderThread,0,this);	// Start thread
 }
@@ -114,112 +102,11 @@ void WiFiReader::changeFreq( void) {
 		}
 }
 
-/*void WiFiReader::captureCallback(WLAN_NOTIFICATION_DATA *wlanNotifData,VOID *p)
-{
-	WiFiReaderScanDone = 1;
-}*/
-
-void WiFiReader::BssidScan(void) {
-	ULONG oidcode;
-	ULONG bytesreturned;
-	char QueryBuffer[1024*30] = {0};
-	m_pBSSIDList = ( NDIS_802_11_BSSID_LIST_EX *) VirtualAlloc(  NULL,
-                                                        sizeof( NDIS_802_11_BSSID_LIST_EX ) * MAX_BSSIDS,
-                                                        MEM_RESERVE | MEM_COMMIT,
-                                                        PAGE_READWRITE) ;
 
 
-	if( m_pBSSIDList == NULL) {
-		fprintf(stderr,"Unable to allocate memory for bssids\n");
-		}
-	else {
-        memset( m_pBSSIDList, 0, sizeof( NDIS_802_11_BSSID_LIST_EX) * MAX_BSSIDS) ;
-        oidcode = OID_802_11_BSSID_LIST_SCAN ;
-		if( hDevice == INVALID_HANDLE_VALUE)
-        {
-			   fprintf(stderr,"invalid handle!\n");
-        }
-        if (DeviceIoControl(        hDevice,
-                                IOCTL_NDIS_QUERY_GLOBAL_STATS,
-                                &oidcode,
-                                sizeof( oidcode),
-                                ( ULONG *) NULL,
-                                0,
-                                &bytesreturned,
-                                NULL) == 0)
-								fprintf(stderr,"scan error: %d\n", GetLastError());
-
-        Sleep(3200);
-
-        memset( m_pBSSIDList, 0, sizeof( NDIS_802_11_BSSID_LIST_EX) * MAX_BSSIDS) ;
-        oidcode = OID_802_11_BSSID_LIST ;
-
-        if( DeviceIoControl(    hDevice,
-                                IOCTL_NDIS_QUERY_GLOBAL_STATS,
-                                &oidcode,
-                                sizeof( oidcode),
-                                (LPVOID) &QueryBuffer[0],
-								sizeof(QueryBuffer),
-                                &bytesreturned,
-                                NULL) == 0)
-			  fprintf(stderr,"\nscan fail: %d\n", GetLastError());
-        else {
-			m_pBSSIDList = (NDIS_802_11_BSSID_LIST_EX*)QueryBuffer;
-			fprintf(stderr,"\nbssids: %d\n", m_pBSSIDList->NumberOfItems);
-			}
-	}
-}
 
 
-bool WiFiReader::get_device_info(   int Index,
-                        char *key_name,
-                        char *device_info,
-                        char *device_description)
-{
-        HKEY hkey ;
-        DWORD size ;
-        DWORD type ;
-        BOOL retval ;
 
-        retval = FALSE ;
-
-      memset( device_info, 0, SIZEOF_DEVICE_NAME) ;
-
-		if( RegOpenKeyExA(       HKEY_LOCAL_MACHINE,
-                                key_name,
-                                0,
-                                KEY_READ,
-                                &hkey) == ERROR_SUCCESS)
-        {
-                type = REG_SZ ;
-                size = SIZEOF_DEVICE_NAME ;
-
-                if( RegQueryValueExA(    hkey,
-                                        "ServiceName",
-                                        NULL,
-                                        &type,
-                                        ( BYTE *) device_info,
-                                        &size) == ERROR_SUCCESS)
-                {
-                        type = REG_SZ ;
-                        size = SIZEOF_DEVICE_NAME ;
-
-                        if( RegQueryValueExA(    hkey,
-                                                "Description",
-                                                NULL,
-                                                &type,
-                                                ( BYTE *) device_description,
-                                                &size) == ERROR_SUCCESS)
-                        {
-                                retval = TRUE ;
-                        }
-                }
-
-                RegCloseKey( hkey) ;
-        }
-
-        return retval ;
-}
 bool WiFiReader::openDevice( void)
 {
 	pcap_if_t *alldevs, *d;
@@ -443,13 +330,6 @@ void WiFiReader::captureLoop( void ) {
 
 
 int WiFiReader::initialize() {
-    // Declare and initialize variables.
-	hClient = NULL;
-	dwCurVersion = 0;
-	
-	DWORD dwResult = 0;
-	DWORD dwMaxClient = 2;      // initial client version
-
 	// Initialize status variables
 	fingerprintsCapturedVal = 0;
 	time(&currTime);
