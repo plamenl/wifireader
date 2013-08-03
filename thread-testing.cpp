@@ -8,7 +8,7 @@ int main()
 	int dummyVar = 0;
 	
 	WiFiReader w;
-	w.initialize();
+	w.initialize(1);
 	w.startCapture();
 	for (int i = 0; i < 150; i++) {
 		Sleep(200);

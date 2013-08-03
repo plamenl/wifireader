@@ -5,7 +5,7 @@
 using namespace System;
 using namespace System::Collections::Generic;
 
-// Need to link with Wlanapi.lib and Ole32.lib
+// Need to link with Wpcap.lib and Ole32.lib
 #pragma comment(lib, "ole32.lib")
 #pragma comment(lib, "wpcap.lib")
 
@@ -79,7 +79,7 @@ void WiFiReader::changeFreq( void) {
 			// only channels 1, 6, 11 in 2.4GHz
 			if (kvp.Key < 3000 && (kvp.Key != 2412 && kvp.Key != 2437 && kvp.Key != 2462))
 				continue;
-			if (!curr_card && kvp.Key > 5260)
+			if (!curr_card && kvp.Key > 5260 && multiCard)
 				continue;
 			else if (curr_card == 1 && (kvp.Key < 5280 || kvp.Key > 5580))
 				continue;
@@ -87,8 +87,11 @@ void WiFiReader::changeFreq( void) {
 				continue;
 			//printf("Setting channel for card %d: %d\n", curr_card, kvp.Key);
             //fprintf(fp,"Setting channel for card %d: %d\n", curr_card, kvp.Key);
-			if (kvp.Key == 5660)
+			if (kvp.Key == 5660 && multiCard)
 				time(&(this->currTime));
+			else if (kvp.Key == 5825)
+				time(&(this->currTime));
+
 			if(!AirpcapSetDeviceChannelEx(curr_airpcap_handle, supported_channels[kvp.Value]))
 				{
 					fprintf(stderr,"Error setting the channel: %s\n", AirpcapGetLastError(curr_airpcap_handle));
@@ -98,7 +101,7 @@ void WiFiReader::changeFreq( void) {
 
 			}
 		fingerprintsCapturedVal++;
-		printf("In card %d fingerprints: %d\n", curr_card, fingerprintsCapturedVal);
+		printf("In card %d fingerprints -> %d\n", curr_card, fingerprintsCapturedVal);
 		}
 }
 
@@ -139,53 +142,63 @@ bool WiFiReader::openDevice( void)
 		pcap_freealldevs(alldevs);
 		return false;
 	}
+	if (multiCard) 
+		{
+		if((winpcap_adapter2 = pcap_open_live("\\\\.\\airpcap01",			// name of the device
+			0,												// portion of the packet to capture. 
+																// 65536 grants that the whole packet will be captured on all the MACs.
+			0,													// promiscuous mode (nonzero means promiscuous)
+			1,													// read timeout, in ms
+			errbuf												// error buffer
+			)) == NULL)
+			{
+			fprintf(stderr,"Error opening adapter with winpcap (%s)\n", errbuf);
+		
+			}
 
-	if((winpcap_adapter2 = pcap_open_live("\\\\.\\airpcap01",			// name of the device
-		0,												// portion of the packet to capture. 
-															// 65536 grants that the whole packet will be captured on all the MACs.
-		0,													// promiscuous mode (nonzero means promiscuous)
-		1,													// read timeout, in ms
-		errbuf												// error buffer
-		)) == NULL)
-	{
-		fprintf(stderr,"Error opening adapter with winpcap (%s)\n", errbuf);
-		//pcap_freealldevs(alldevs);
-		//return false;
-	}
+		if((winpcap_adapter3 = pcap_open_live("\\\\.\\airpcap02",			// name of the device
+			0,												// portion of the packet to capture. 
+																// 65536 grants that the whole packet will be captured on all the MACs.
+			0,													// promiscuous mode (nonzero means promiscuous)
+			1,													// read timeout, in ms
+			errbuf												// error buffer
+			)) == NULL)
+			{
+			fprintf(stderr,"Error opening adapter with winpcap (%s)\n", errbuf);
+			}
 
-	if((winpcap_adapter3 = pcap_open_live("\\\\.\\airpcap02",			// name of the device
-		0,												// portion of the packet to capture. 
-															// 65536 grants that the whole packet will be captured on all the MACs.
-		0,													// promiscuous mode (nonzero means promiscuous)
-		1,													// read timeout, in ms
-		errbuf												// error buffer
-		)) == NULL)
-	{
-		fprintf(stderr,"Error opening adapter with winpcap (%s)\n", errbuf);
-		//pcap_freealldevs(alldevs);
-		//return false;
-	}
+		if((winpcap_adapter_multi = pcap_open_live("\\\\.\\airpcap_any",			// name of the device
+			0,												// portion of the packet to capture. 
+																// 65536 grants that the whole packet will be captured on all the MACs.
+			0,													// promiscuous mode (nonzero means promiscuous)
+			1,													// read timeout, in ms
+			errbuf												// error buffer
+			)) == NULL)
+			{	
+			printf("Error opening adapter with winpcap (%s)\n", errbuf);
+			pcap_freealldevs(alldevs);
+			return false;
+			}
+		airpcap_handle2 = pcap_get_airpcap_handle(winpcap_adapter2);
+		airpcap_handle3 = pcap_get_airpcap_handle(winpcap_adapter3);
+		airpcap_handle_multi = pcap_get_airpcap_handle(winpcap_adapter_multi);
+		if(!AirpcapSetLinkType(airpcap_handle2, AIRPCAP_LT_802_11_PLUS_RADIO))
+			{
+			fprintf(stderr, "Error setting the link layer: %s\n", AirpcapGetLastError(airpcap_handle2));
+			pcap_close(winpcap_adapter2);
+			}
 
-	if((winpcap_adapter_multi = pcap_open_live("\\\\.\\airpcap_any",			// name of the device
-		0,												// portion of the packet to capture. 
-															// 65536 grants that the whole packet will be captured on all the MACs.
-		0,													// promiscuous mode (nonzero means promiscuous)
-		1,													// read timeout, in ms
-		errbuf												// error buffer
-		)) == NULL)
-	{
-		printf("Error opening adapter with winpcap (%s)\n", errbuf);
-		pcap_freealldevs(alldevs);
-		return false;
-	}
-
+		if(!AirpcapSetLinkType(airpcap_handle3, AIRPCAP_LT_802_11_PLUS_RADIO))
+			{
+			fprintf(stderr, "Error setting the link layer: %s\n", AirpcapGetLastError(airpcap_handle3));
+			pcap_close(winpcap_adapter3);
+			}
+		}
 	//
 	// Get the airpcap handle so we can change wireless-specific settings
 	//
 	airpcap_handle1 = pcap_get_airpcap_handle(winpcap_adapter1);
-	airpcap_handle2 = pcap_get_airpcap_handle(winpcap_adapter2);
-	airpcap_handle3 = pcap_get_airpcap_handle(winpcap_adapter3);
-	airpcap_handle_multi = pcap_get_airpcap_handle(winpcap_adapter_multi);
+	
 
 	if(airpcap_handle1 == NULL)
 	{
@@ -199,20 +212,6 @@ bool WiFiReader::openDevice( void)
 		fprintf(stderr, "Error setting the link layer: %s\n", AirpcapGetLastError(airpcap_handle1));
 		pcap_close(winpcap_adapter1);
 		return false;
-	}
-
-	if(!AirpcapSetLinkType(airpcap_handle2, AIRPCAP_LT_802_11_PLUS_RADIO))
-	{
-		fprintf(stderr, "Error setting the link layer: %s\n", AirpcapGetLastError(airpcap_handle2));
-		pcap_close(winpcap_adapter2);
-
-	}
-
-	if(!AirpcapSetLinkType(airpcap_handle3, AIRPCAP_LT_802_11_PLUS_RADIO))
-	{
-		fprintf(stderr, "Error setting the link layer: %s\n", AirpcapGetLastError(airpcap_handle3));
-		pcap_close(winpcap_adapter3);
-
 	}
 
 
@@ -235,26 +234,34 @@ void WiFiReader::captureLoop( void ) {
 	rts_frame captured_frame;
 	AirpcapChannelInfo *supported_channels;
 	unsigned int num_channels=0;
-	
+	pcap_t *used_adapter;
+
+	used_adapter = winpcap_adapter1;
 	fopen_s(&fp,"wifiout.dat","wb");
 	time(&currTime);
 	//fprintf(stderr,"count is: %d\n",channels.Count);
 	printf("Starting threads\n");
 	cardId = 0;
 	_beginthread(WiFiReader::changeFreqThread,0,this);
-	Sleep(40);
-	cardId = 1;
-	_beginthread(WiFiReader::changeFreqThread,0,this);
-	Sleep(40);
-	cardId = 2;
-	_beginthread(WiFiReader::changeFreqThread,0,this);
+	
+	if (multiCard)
+		{
+		Sleep(40);
+		cardId = 1;
+		_beginthread(WiFiReader::changeFreqThread,0,this);
+		Sleep(40);
+		cardId = 2;
+		_beginthread(WiFiReader::changeFreqThread,0,this);
+
+		used_adapter = winpcap_adapter_multi;
+		}
 	printf("Threads started\n");
 	Sleep(100);
 
 	while (!stopScanners)
 		{
 		
-		while((res = pcap_next_ex(winpcap_adapter_multi, &header, &pkt_data)) >= 0 )
+		while((res = pcap_next_ex(used_adapter, &header, &pkt_data)) >= 0 )
 				{		
 				if (stopScanners)
 					break;
@@ -302,7 +309,7 @@ void WiFiReader::captureLoop( void ) {
 				if (!captured_frame.tag_number) 
 					{
 					fprintf(fp,"\t");
-					
+					// Get the SSID from the first tag.
 					for (UINT j = 0; j < captured_frame.tag_length; j++)
 						{
 						int test_byte = pkt_data[j];
@@ -329,12 +336,16 @@ void WiFiReader::captureLoop( void ) {
 }
 
 
-int WiFiReader::initialize() {
+int WiFiReader::initialize(int mode) {
 	// Initialize status variables
 	fingerprintsCapturedVal = 0;
 	time(&currTime);
 	WiFiReaderScanDone = 1;
 
+	if (mode)
+		multiCard = false;
+	else
+		multiCard = true;
 	if (WiFiReader::openDevice())
 		return 0;
 	else
@@ -348,8 +359,10 @@ int WiFiReader::disconnect() {
 	// pcap_close takes care of it.
 	//
 	pcap_close(winpcap_adapter1);
-	pcap_close(winpcap_adapter2);
-	pcap_close(winpcap_adapter3);
+	if (multiCard) {
+		pcap_close(winpcap_adapter2);
+		pcap_close(winpcap_adapter3);
+	}
 	//pcap_close(winpcap_adapter_multi);
 	//if (fp)
 	//	fclose(fp);

@@ -14,8 +14,7 @@
 #include <process.h>
 #include <time.h>
 
-#include "winioctl.h"
-#include "ntddndis.h"
+
 #include "util.h"
 #include "80211_dissect.h"
 
@@ -33,7 +32,7 @@ ULONG RadiotapGet(const u_char *p, ULONG caplen, radio_data *rdata);
 class WiFiReader {
 public:
 	/// @brief Setup wifi for capture - negative return values indicate error. 0 is normal status.
-	int initialize();
+	int initialize(int mode=0);
 
 	/// @brief Starts scan capture by launching the thread for captureLoop().
 	void startCapture( void );
@@ -66,7 +65,7 @@ public:
 	time_t currTime;
 	FILE *fp;
 	int cardId;
-
+	bool multiCard;
 };
 
 #endif
