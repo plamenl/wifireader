@@ -28,6 +28,33 @@ void WiFiReader::changeFreqThread (void * p) {
 	 return;
 }
 
+void WiFiReader::setFreq(int cardNum) {
+	PAirpcapHandle curr_airpcap_handle;
+	AirpcapChannelInfo *supported_channels;
+	unsigned int num_channels=0;
+
+	if (!cardNum)
+		curr_airpcap_handle = airpcap_handle1;
+	else if (cardNum == 1)
+		curr_airpcap_handle = airpcap_handle2;
+	else
+		curr_airpcap_handle = airpcap_handle3;
+
+	AirpcapGetDeviceSupportedChannels	(	curr_airpcap_handle,
+											&supported_channels,
+											(PUINT)&num_channels
+										);	
+	for (unsigned int x = 0, i = 0; x < num_channels; x++) {
+		if (
+			(!cardNum && supported_channels[x].Frequency == 2412) ||
+			   (cardNum == 1 && supported_channels[x].Frequency == 2437) ||
+			   (cardNum == 2 && supported_channels[x].Frequency == 2462)
+			)
+			AirpcapSetDeviceChannelEx(curr_airpcap_handle, supported_channels[x]);
+				
+		}
+	}
+
 void WiFiReader::changeFreq( void) {
 	AirpcapChannelInfo *supported_channels;
 	PAirpcapHandle curr_airpcap_handle;
@@ -240,22 +267,22 @@ void WiFiReader::captureLoop( void ) {
 	fopen_s(&fp,"wifiout.dat","wb");
 	time(&currTime);
 	//fprintf(stderr,"count is: %d\n",channels.Count);
-	printf("Starting threads\n");
+	//printf("Starting threads\n");
 	cardId = 0;
-	_beginthread(WiFiReader::changeFreqThread,0,this);
+	//_beginthread(WiFiReader::changeFreqThread,0,this);
 	
 	if (multiCard)
 		{
-		Sleep(40);
+		/*Sleep(40);
 		cardId = 1;
 		_beginthread(WiFiReader::changeFreqThread,0,this);
 		Sleep(40);
 		cardId = 2;
-		_beginthread(WiFiReader::changeFreqThread,0,this);
-
+		_beginthread(WiFiReader::changeFreqThread,0,this);*/
+		setFreq(0); setFreq(1); setFreq(2);
 		used_adapter = winpcap_adapter_multi;
 		}
-	printf("Threads started\n");
+	//printf("Threads started\n");
 	Sleep(100);
 
 	while (!stopScanners)
@@ -273,12 +300,12 @@ void WiFiReader::captureLoop( void ) {
 					continue;
 					}
 
-				//
-				// print pkt timestamp and pkt len
-				//
-				//printf("%ld:%ld (%ld)\n", header->ts.tv_sec, header->ts.tv_usec, header->len);			
-				//
-				// Print radio information
+				//Increase timestamp every 2 seconds
+				time_t newTime;
+				time(&newTime);
+				if (difftime(newTime,this->currTime) > 0)
+					this->currTime = newTime;
+				// Read radio information
 				//
 				memset(&rdata,0,sizeof(rdata));
 				RadioHdrLen = ::RadiotapGet(pkt_data, header->caplen, &rdata);
@@ -321,17 +348,16 @@ void WiFiReader::captureLoop( void ) {
 				fprintf(fp,"\n");		
 				}
 
-			if(res == -1)
+			/*if(res == -1)
 				{
 				//printf("Error reading the packets: %s\n", pcap_geterr(winpcap_adapter_multi));
-				}
+				}*/
 
   
 		
 	}
 	if (this->fp)
 		fclose(this->fp);
-	//printf("DONE!");
 	
 }
 

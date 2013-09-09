@@ -44,7 +44,8 @@ public:
 	void captureLoop( void );
 	//static void captureCallback(WLAN_NOTIFICATION_DATA *wlanNotifData,VOID *p);
 	
-	void changeFreq( void); 
+	void changeFreq( void);
+	void setFreq(int cardNum);
 	static void changeFreqThread (void * p);
 
 	/// @brief Shutdown wifi interface, any necesary cleanup.
