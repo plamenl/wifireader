@@ -303,8 +303,10 @@ void WiFiReader::captureLoop( void ) {
 				//Increase timestamp every 2 seconds
 				time_t newTime;
 				time(&newTime);
-				if (difftime(newTime,this->currTime) > 0)
+				if (difftime(newTime,this->currTime) > 0) {
 					this->currTime = newTime;
+					fingerprintsCapturedVal++;
+					}
 				// Read radio information
 				//
 				memset(&rdata,0,sizeof(rdata));
