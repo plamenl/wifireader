@@ -244,6 +244,7 @@ bool WiFiReader::openDevice( void)
 
 	pcap_freealldevs(alldevs);
 
+	return true;
 }
 
 
