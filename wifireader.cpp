@@ -114,20 +114,21 @@ void WiFiReader::changeFreq( void) {
 				continue;
 			//printf("Setting channel for card %d: %d\n", curr_card, kvp.Key);
             //fprintf(fp,"Setting channel for card %d: %d\n", curr_card, kvp.Key);
-			if (kvp.Key == 5660 && multiCard)
+			
+			/*if (kvp.Key == 5660 && multiCard)
 				time(&(this->currTime));
 			else if (kvp.Key == 5825)
-				time(&(this->currTime));
+				time(&(this->currTime));*/
 
 			if(!AirpcapSetDeviceChannelEx(curr_airpcap_handle, supported_channels[kvp.Value]))
 				{
 					fprintf(stderr,"Error setting the channel: %s\n", AirpcapGetLastError(curr_airpcap_handle));
 					continue;
 				}
-			Sleep(102);
+			Sleep(204);
 
 			}
-		fingerprintsCapturedVal++;
+		//fingerprintsCapturedVal++;
 		printf("In card %d fingerprints -> %d\n", curr_card, fingerprintsCapturedVal);
 		}
 }
@@ -243,8 +244,8 @@ bool WiFiReader::openDevice( void)
 
 
 	pcap_freealldevs(alldevs);
-
 	return true;
+
 }
 
 
@@ -270,17 +271,17 @@ void WiFiReader::captureLoop( void ) {
 	//fprintf(stderr,"count is: %d\n",channels.Count);
 	//printf("Starting threads\n");
 	cardId = 0;
-	//_beginthread(WiFiReader::changeFreqThread,0,this);
+	_beginthread(WiFiReader::changeFreqThread,0,this);
 	
 	if (multiCard)
 		{
-		/*Sleep(40);
+		Sleep(40);
 		cardId = 1;
 		_beginthread(WiFiReader::changeFreqThread,0,this);
 		Sleep(40);
 		cardId = 2;
-		_beginthread(WiFiReader::changeFreqThread,0,this);*/
-		setFreq(0); setFreq(1); setFreq(2);
+		_beginthread(WiFiReader::changeFreqThread,0,this);
+		//setFreq(0); setFreq(1); setFreq(2);
 		used_adapter = winpcap_adapter_multi;
 		}
 	//printf("Threads started\n");
@@ -304,7 +305,7 @@ void WiFiReader::captureLoop( void ) {
 				//Increase timestamp every 2 seconds
 				time_t newTime;
 				time(&newTime);
-				if (difftime(newTime,this->currTime) > 0) {
+				if (difftime(newTime,this->currTime) > 2) {
 					this->currTime = newTime;
 					fingerprintsCapturedVal++;
 					}
