@@ -302,7 +302,7 @@ void WiFiReader::captureLoop( void ) {
 					continue;
 					}
 
-				//Increase timestamp every 2 seconds
+				//Increase timestamp every 3 seconds
 				time_t newTime;
 				time(&newTime);
 				if (difftime(newTime,this->currTime) > 2) {
