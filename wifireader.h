@@ -67,6 +67,8 @@ public:
 	FILE *fp;
 	int cardId;
 	bool multiCard;
+	CRITICAL_SECTION freqCrit;
+	unsigned short scanStatus;
 };
 
 #endif

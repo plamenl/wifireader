@@ -60,6 +60,7 @@ void WiFiReader::changeFreq( void) {
 	PAirpcapHandle curr_airpcap_handle;
 	unsigned int num_channels=0;
 	int curr_card = cardId;
+	int curr_chan;
 	Dictionary<unsigned int, unsigned int> channels = gcnew Dictionary<unsigned int, unsigned int>();
 	printf("\nCard is: %d\n", curr_card);
 
@@ -97,6 +98,7 @@ void WiFiReader::changeFreq( void) {
 		{
 		for each( KeyValuePair<unsigned int, unsigned int> kvp in channels )
 			{
+			curr_chan = kvp.Key;
 			if (stopScanners)
 				break;
 			// skip the 4.9GHz channels
@@ -116,7 +118,7 @@ void WiFiReader::changeFreq( void) {
             //fprintf(fp,"Setting channel for card %d: %d\n", curr_card, kvp.Key);
 			
 			/*if (kvp.Key == 5660 && multiCard)
-				time(&(this->currTime));
+				fingerprintsCapturedVal++;
 			else if (kvp.Key == 5825)
 				time(&(this->currTime));*/
 
@@ -128,6 +130,21 @@ void WiFiReader::changeFreq( void) {
 			Sleep(204);
 
 			}
+			EnterCriticalSection(&freqCrit);
+			if (!curr_card )
+				scanStatus |= 0x1;
+			else if (curr_card == 1)
+				scanStatus |= 0x2;
+			else if (curr_card == 2)
+				scanStatus |= 0x4;
+
+			if ( (scanStatus & 0x7) == 0x7) {
+				fingerprintsCapturedVal++;
+				time(&(this->currTime));
+				scanStatus = 0x0;
+				//fprintf(fp,"\nFULL SCAN DONE!\n");
+				}
+			LeaveCriticalSection(&freqCrit);
 		//fingerprintsCapturedVal++;
 		printf("In card %d fingerprints -> %d\n", curr_card, fingerprintsCapturedVal);
 		}
@@ -268,8 +285,12 @@ void WiFiReader::captureLoop( void ) {
 	used_adapter = winpcap_adapter1;
 	fopen_s(&fp,"wifiout.dat","wb");
 	time(&currTime);
-	//fprintf(stderr,"count is: %d\n",channels.Count);
-	//printf("Starting threads\n");
+
+	scanStatus = 0x0;
+	if (!InitializeCriticalSectionAndSpinCount(&freqCrit, 
+        0x00000400) ) 
+        fprintf(stderr,"PROBLEM! Couldn't initialize critical section!");
+	
 	cardId = 0;
 	_beginthread(WiFiReader::changeFreqThread,0,this);
 	
@@ -305,10 +326,10 @@ void WiFiReader::captureLoop( void ) {
 				//Increase timestamp every 3 seconds
 				time_t newTime;
 				time(&newTime);
-				if (difftime(newTime,this->currTime) > 2) {
+				/*if (difftime(newTime,this->currTime) > 2) {
 					this->currTime = newTime;
 					fingerprintsCapturedVal++;
-					}
+					}*/
 				// Read radio information
 				//
 				memset(&rdata,0,sizeof(rdata));
@@ -396,6 +417,7 @@ int WiFiReader::disconnect() {
 	//pcap_close(winpcap_adapter_multi);
 	//if (fp)
 	//	fclose(fp);
+	DeleteCriticalSection(&freqCrit);
 	return 1;
 }
 
